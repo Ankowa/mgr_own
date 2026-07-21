@@ -1,0 +1,90 @@
+\chapter{Extended Analysis of Results}
+\label{chap:extended-analysis}
+
+This chapter provides a slower reading of the result tables. The previous evaluation chapter reports the main numbers compactly. Here the same evidence is interpreted across datasets, attack types, and clean--robust trade-offs. The purpose is to make the thesis long enough to stand as a full document while still staying grounded in the supplied robustness resources.
+
+\section{How to Read the Tables}
+
+Each result table has three conceptual columns. The clean column measures ordinary downstream utility. The \EmbedAttack column measures robustness of the encoder representation under a task-agnostic attack. The task-specific attack column measures robustness of the deployed downstream pipeline. A robust foundation encoder should ideally do well in all three columns across all tasks. It should not be considered robust merely because one attacked column improves.
+
+A common mistake is to compare only clean performance. Clean performance answers whether the representation is useful, not whether it is stable. Another mistake is to compare only \EmbedAttack performance. That answers whether the representation is stable under a particular representation-distance objective, not whether a downstream loss is protected. The tables in this thesis are designed to prevent those shortcuts.
+
+The table layout also makes negative transfer visible. If a defense improves \EmbedAttack but reduces clean performance, it may still be useful for a representation-level threat model. If it improves \EmbedAttack but leaves task-specific attacks near zero, it is not sufficient for deployed downstream robustness. If it improves one dataset but not another, then distribution and task details matter.
+
+\section{Classification: Clean Accuracy and Attack Collapse}
+
+The classification results initially look familiar from robust SSL literature. Standard encoders have high clean accuracy. \DINOv ViT-B/14 is especially strong, reaching 0.98 on CIFAR10 and 0.99 on STL10. These values support the claim that SSL encoders learn useful global representations. A user who only sees the clean column would reasonably conclude that the encoders are good feature extractors.
+
+The adversarial columns change the conclusion. Standard encoders collapse under \PGD on all three datasets. The values are 0.00 for every standard row in the task-specific attack column. This means that the classifier pipeline is almost entirely vulnerable under the evaluated white-box attack. The clean representation is useful, but its decision boundary is not robust.
+
+\EmbedAttack also causes severe classification degradation. Even without labels or the classifier loss, representation-distance perturbations reduce accuracy to near zero for most standard rows. This indicates that the representations themselves are fragile. It is not only that the linear classifier has a brittle boundary; the encoder output can be moved substantially by small input perturbations.
+
+\section{Classification: What \DeACL Fixes}
+
+\DeACL substantially improves classification performance under \EmbedAttack. CIFAR10 rises from 0.01 to 0.73 for \DINO ViT-B/16. CIFAR100 rises from 0.00 to 0.55. STL10 rises from 0.00 to 0.83. These are large improvements and should not be dismissed. They show that representation-level robust fine-tuning can stabilize the representation against the attack it targets.
+
+The clean column shows a smaller cost. CIFAR10 drops from 0.94 to 0.91, CIFAR100 from 0.76 to 0.72, and STL10 from 0.98 to 0.97. This cost is not catastrophic for classification, but it matters because foundation encoders are reused broadly. A few points of clean performance loss may be acceptable if robust performance improves substantially, but only if the improved robustness is relevant to deployment.
+
+The \PGD column is therefore decisive. \DeACL reaches 0.02 on CIFAR10, 0.03 on CIFAR100, and 0.23 on STL10. These numbers are far lower than the corresponding \EmbedAttack values. The most favorable interpretation is that \DeACL provides partial classification robustness on STL10, perhaps because STL10 is closer to the ImageNet distribution used in pre-training and robust fine-tuning. The less favorable but more general interpretation is that representation alignment does not sufficiently constrain the classifier loss.
+
+\section{Segmentation: Dense Prediction Exposes the Gap}
+
+The segmentation table is the strongest evidence for the thesis. Standard \DINOv encoders perform well cleanly. On PASCAL VOC 2012, both \DINOv variants reach 0.83 mIoU. On Cityscapes, they reach 0.65 and 0.68. These values show that the clean representations support dense prediction, not only classification.
+
+Under attack, however, standard encoders again collapse. \EmbedAttack reduces mIoU to values between 0.00 and 0.06. \SegPGD is similarly devastating. This means that dense token features are highly sensitive to small perturbations. Since the attack budget is the same as in classification, the difference is not due to a stronger visual distortion; it is due to vulnerability of the model and task pipeline.
+
+The segmentation setting also emphasizes why global robustness is insufficient. A classifier can be wrong in one way: it predicts the wrong class. A segmentation model can fail in many spatially structured ways. It can misclassify boundaries, small objects, road regions, or large background classes. mIoU aggregates these failures but does not show every pattern. Therefore, a near-zero attacked mIoU is a strong warning signal.
+
+\section{Segmentation: \DeACL and Task Mismatch}
+
+\DeACL improves segmentation under \EmbedAttack but not under \SegPGD. On Cityscapes, \EmbedAttack mIoU improves from 0.06 to 0.31. On PASCAL VOC 2012, it improves from 0.06 to 0.30. On ADE20K, it improves from 0.01 to 0.14. These are meaningful gains. They show that the robust encoder has more stable patch representations under a representation-distance attack.
+
+The clean segmentation cost is larger than the classification cost. Cityscapes drops from 0.45 to 0.36 for the matched \DINO ViT-B/16 comparison, and PASCAL VOC 2012 drops from 0.56 to 0.51. The ADE20K drop is from 0.27 to 0.24. A user deploying segmentation would notice these losses, especially because stronger standard \DINOv encoders are much better cleanly.
+
+The \SegPGD values remain near zero. ADE20K is 0.01, Cityscapes is 0.03, and PASCAL VOC 2012 is 0.02. This is the clearest example of objective mismatch. The robust encoder learned to resist representation-distance perturbations, but \SegPGD directly optimizes pixel-wise segmentation loss. The downstream head still exposes directions that damage the output.
+
+\section{Depth Estimation: Geometry as a Different Failure Mode}
+
+Depth estimation uses RMSE, so the table must be read in the opposite direction: lower is better. Clean \DINOv ViT-B/14 reaches 0.46, and \DINOv ViT-S/14 reaches 0.49. Standard \DINO ViT-B/16 is weaker at 0.61, and \DeACL is weaker still at 0.68. The clean cost of robust fine-tuning is therefore visible in depth.
+
+\EmbedAttack increases RMSE substantially for standard encoders. \DINOv ViT-S/14 rises from 0.49 to 1.54, \DINOv ViT-B/14 from 0.46 to 1.29, and \DINO ViT-B/16 from 0.61 to 1.28. This is important because \EmbedAttack does not directly optimize RMSE. Representation changes alone are enough to damage geometry.
+
+\DepthPGD is even more damaging for \DINOv. The RMSE values 2.60 and 2.74 show that task-specific attacks can exploit depth losses very effectively. For standard \DINO ViT-B/16, \DepthPGD reaches 1.79. The exact ordering differs from \EmbedAttack, which reinforces the need to report both attacks. A model that looks better under one attack may look worse under another.
+
+\section{Depth Estimation: Limits of \DeACL}
+
+\DeACL reduces \EmbedAttack RMSE for \DINO ViT-B/16 from 1.28 to 0.92. This is a useful improvement. Yet clean RMSE worsens from 0.61 to 0.68. The defense therefore trades clean geometry for representation-attack robustness.
+
+Against \DepthPGD, the improvement is small: 1.79 to 1.71. This difference is minor compared with the gap between clean and attacked performance. The robust encoder still produces depth predictions that are badly damaged by a task-specific attack. This again supports the central claim: representation robustification is not task-loss robustification.
+
+Depth also shows why continuous tasks matter. In classification, attacked accuracy can saturate at zero. In depth, errors can continue to grow. A defense might reduce one kind of error while leaving another severe. Reporting only classification would miss this kind of geometric vulnerability.
+
+\section{Fine-Tuning Curves and Early Gains}
+
+The supplied fine-tuning figures show that \DeACL gains appear early. This pattern is consistent with a representation alignment process: once the robust encoder learns to map adversarial and clean examples closer together, additional epochs provide diminishing returns. The figures also suggest that task-specific robustness does not rise in the same way.
+
+This matters for practical training. If a method quickly improves the metric it optimizes but fails to improve downstream attacks, then simply training longer is unlikely to solve the problem. The objective itself must change. Multi-task adversarial losses, adaptor-aware perturbations, or a broader family of representation constraints may be needed.
+
+The fine-tuning curves also illustrate clean--robust trade-offs. Even if \EmbedAttack robustness improves, clean performance can drop. Foundation encoders are shared infrastructure, so clean degradation has broad consequences. A robustification method should therefore report not only its best attacked value, but the whole trajectory of clean and attacked metrics.
+
+\section{Cross-Dataset Patterns}
+
+Across classification datasets, STL10 is the most favorable case for \DeACL under \PGD. CIFAR10 and CIFAR100 remain almost zero, while STL10 reaches 0.23. One plausible explanation is domain similarity. STL10 images are closer to ImageNet-like natural images than CIFAR images after resizing. Since the encoder and robust fine-tuning are tied to ImageNet-style data, distribution alignment may help.
+
+Across segmentation datasets, PASCAL VOC 2012 has the highest clean values, but still collapses under \SegPGD. Cityscapes has a strong \EmbedAttack improvement under \DeACL, but \SegPGD remains near zero. ADE20K is harder cleanly and remains hard under attack. These patterns show that clean dataset difficulty and robust dataset difficulty are related but not identical.
+
+Across depth, \DINOv encoders are strongest cleanly but highly vulnerable to \DepthPGD. This warns against assuming that better clean foundation models are automatically more robust. Scaling and better pre-training can improve utility while leaving adversarial directions intact.
+
+\section{What Would Count as Transfer?}
+
+It is useful to define what successful robustness transfer would look like. If \DeACL transferred well, the task-specific attack columns would improve substantially along with \EmbedAttack columns. Clean performance might drop modestly, but downstream robustness would rise enough to justify the trade-off. For segmentation, one would expect \SegPGD mIoU to rise well above near-zero values. For depth, one would expect \DepthPGD RMSE to move much closer to clean RMSE.
+
+That is not what the tables show. The largest improvements are concentrated in the \EmbedAttack column. Task-specific columns remain very low or very high in the bad direction. Therefore, the thesis conclusion is not based on a vague impression; it follows from a concrete transfer criterion that the evaluated defense does not satisfy.
+
+\section{Implications for Benchmark Design}
+
+Benchmarks for robust foundation encoders should include at least three axes: task, attack interface, and clean utility. The task axis distinguishes classification, segmentation, depth, and other downstream uses. The attack-interface axis distinguishes representation attacks from task-loss attacks. The clean-utility axis prevents robustification from silently destroying ordinary performance.
+
+A benchmark should also report matched comparisons. Comparing robust \DINO ViT-B/16 with standard \DINOv ViT-B/14 can be informative, but the main defense effect is best measured against standard \DINO ViT-B/16. The tables in this thesis include both kinds of comparison: matched rows for the defense and stronger standard rows for context.
+
+Finally, benchmarks should avoid hiding failures in averages. A model with strong \EmbedAttack robustness and near-zero \SegPGD robustness is not robust for segmentation deployment. Reporting the matrix is more honest than reporting a single score. This is the main methodological recommendation of the thesis.

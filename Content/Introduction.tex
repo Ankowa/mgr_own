@@ -1,0 +1,110 @@
+\chapter{Introduction}
+\label{chap:introduction}
+
+In this section I introduce the main object of my study: image encoders trained under self-supervised learning (SSL) TODO CITE paradigm. After providing an overview of what SSL is and why it was invented, I pivot to the second topic: adversarial images TODO CITE. Finally, I pair both topics, highligh the research gap my work addresses, and summarize the contributions of this thesis.
+
+\section{Computer Vision}
+
+% 3 pages more or less here
+
+The main objective of computer vision is to give sight to the computers. Our cameras already provide a lot of raw data, comprising of millions of 8bit numbers per image. The computer should "make sense" of this data,~\ie understand the image's contents, semantics, structure, etc. The understanding should be at least partially similar to how we, humans, see and reason visually. 
+
+One of the ways to give an actual understanding came from an advent of machine learning (ML), where neural networks (NNs), optimized to minimize prediction error, achieved reasonable classification accuracy on ImageNet-1k TODO ADD CITATIONS. These models use sizeable sets of data, comprising of images, labelled manually by human workers into classes.
+
+While their success is impressive, with current performance on ImageNet-1k benchmark surpassing human-eye-ball-based "classifiers", they rely heavily on manual labor for data collection, processing, filtering, and finally: labelling. ImageNet-1k, while truly ahead of its time, comprises of only 1M image+label pairs. The Internet offers orders-of-magnitude more data, albeit unlabeled, waiting to be harnessed.
+
+\section{Self-Supervised Learning and Image Encoders}
+
+One of the approaches to use this data productively, studied in this work, is self-supervised learning (SSL). There, the NNs are optimized towards a different objective than predicting the correct label, due to the lack of one. Instead, they output high-dimensional vectors, referred to as representations or embeddings throughout this thesis. Representations are meant to encode the rich contents of an image (usually consisting of milliions of pixels) into significantly sparser, continuous point in an embedding space. 
+
+These representations have many use-cases. One can train a simple logistic regression model, which predicts an image's class based on the SSL model's embeddings. Contrary to big and expensive to train networks, such an approach is cheap, and oftentimes beats NNs trained from scratch just to solve a specific task. Similarly, recent SSL encoders like DINO (TODO CITE) enable per-pixel predictions, for example segmentation or depth estimation. 
+
+While embeddings are useful, now it's the time to discuss how they are obtained. Since random vectors are far from useful, the SSL encoders have to somehow derive how to craft a rich and expressive embeddings, using unlabeled data. The dominant approach here is to craft multiple "views" of an image,~\ie semantics-preserving augmentations like blurring or cropping. The NNs are trained to output identical representations for all views for the same image, and output different representations for views of two different images.
+
+Training frameworks of SSL encoders vary. SimCLR HERE HOW IT TRAINS. SimSiam operates on siamese networks TODO CITE and stop-gradient operations to prevent collapse. DINO employs a self-distillation framework, where the teacher model is passed a "strong" view of the image, while the student sees a "weak", more noisy view of the same image. DINO is also the first framework to successfully use Vision Transformers (ViTs) TODO CITE for SSL. Thanks to ViT's attention mechanism TODO CITE it enables per-pixel predictions,~\eg segmentation.
+
+/section{Adversarial Images}
+
+Since SSL encoders are so powerful, they find many applications,~\eg in self-driving cars, or medical image processing CITE. These posits them as a crucial part in critical systems, and their failure can thus have severe negative consequences. 
+
+While there are many modes of failure an ML system can have, this work focuses on one: adversarial images (also referred to as adversarial examples throughout this work). Adversarial images are crafted explicitly to cause misprediction of a victim ML model. It uses a clean, benign image, and subtly alters it to,~\eg flip the class prediction from correct to incorrect. The perturbation added to the original image is oftentimes simply invisible for a human eye, while the NN is consistently fooled. This makes the detection, counteraction, and monitoring of such a threat extremely difficult. 
+
+Adversarial examples rely on gradient flow from the output of the NN back to the input image, hence they often require white-box access to the attacked model. Usually, they are created by crafting as small perturbation as possible that achieves the goal of misprediction,~\eg misclassification, using simple gradient-based optimization like PGD or FGSM TODO CITE. Adversarial examples are uniformly present, almost every NN is vulnerable to them, and after more than a decade of research, the solution is far from known. TODO ADD CITATIONS EVERYWHERE
+
+\section{This work: SSL and Adversarial Examples}
+
+Literature on adversarial images for classification is extensive, while this topic is less explored for SSL models. 
+The reasons for that are as follows. 
+
+First, the optimization objective for adversarial images against SSL models is non-obvious. These predict vectors that reside in complex high-dimensional space, and it is not clear what goal should an adversarial image achieve there, and what to optimize for. 
+
+Second, the actual success of the attack is unknown, unless the adversary (attacker) explicitly knows what would this specific image's embedding be used for. This complicates the evaluation severely, as the attack success should be evaluated across a plethora of downstream tasks and datasets, especially since modern SSL models enable more than simple classification. 
+
+Finally, the attack should be \textit{downstream-task-agnostic}, meaning it should cause misclassification for any downstream linear probe. Current literature focuses only on \textit{task-specific} attacks TODO CITE, which motivates work on a universal attack.
+
+My contributions are as follows.
+\begin{itemize}
+    \item I introduce \EmbedAttack, a \textit{downstream task- and dataset-agnostic} adversarial attack against SSL image encoders.
+    \item I evaluate \EmbedAttack against existing \textit{task- and dataset-specific} \PGD and \SegPGD for classification and semantic segmentation of images.
+    \item I show that \EmbedAttack is reliable and universal, across XXX datasets, XXX tasks, and XXX SSL encoders, performing similarly to stronger, specific attacks.
+\end{itemize}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% Foundation vision models are valuable because they separate expensive representation learning from downstream use. A self-supervised encoder can be trained once on large image collections and later paired with small adaptors for classification, semantic segmentation, depth estimation, or retrieval. This reuse is the motivation behind modern self-supervised learning (SSL): unlabeled data supplies the pre-training signal, while task labels are needed only after the representation has been learned \parencite{chen2020simple,simsiam,caron2021dino,mae,balestriero2023cookbook}.
+
+% The same reuse makes robustness evaluation difficult. If an encoder is deployed through many downstream heads, then a robustness claim about only one head is incomplete. Prior robust SSL work commonly evaluates a frozen encoder with a linear classifier and reports robust classification accuracy \parencite{NaseerPurifier2020CVPR,kim2020adversarial,jiang2020robust,fan2021does,zhang2022decoupled,luo2023rethinking}. Linear evaluation is useful, but it is only one interface. Dense tasks such as semantic segmentation and depth estimation expose pixel-wise losses and spatial tokens. An attacker that optimizes those outputs may find failures that a representation-level or classification-only evaluation does not reveal.
+
+% This thesis rewrites the project around the resources provided in the repository. The central material is the manuscript and workshop work on evaluating adversarial robustness of SSL encoders across downstream tasks, together with the poster, figures, and thesis template. The resulting thesis focuses on one question:
+
+% \begin{quote}
+% \emph{Does adversarial robustness of a self-supervised vision encoder transfer across the downstream tasks for which foundation encoders are reused?}
+% \end{quote}
+
+% The empirical answer is negative in the evaluated setting. Standard \DINO and \DINOv encoders are strong clean representations, but are highly vulnerable to small $\ell_\infty$ perturbations. \DeACL, a state-of-the-art decoupled adversarial fine-tuning method, improves robustness against the representation attack used during robustification, but it does not reliably protect downstream task losses.
+
+% \section{Motivation}
+
+% Self-supervised encoders are no longer evaluated only as feature extractors for image classification. \DINO shows that self-distilled ViTs learn visual features useful for downstream tasks \parencite{caron2021dino}. \DINOv scales this idea and reports strong performance on both sparse and dense visual tasks \parencite{oquab2024dinov2}. If such encoders are foundation models, their robustness should be tested at the same breadth as their clean utility.
+
+% Adversarial robustness is an interface-specific property. A perturbation can be generated to change an encoder embedding, a class prediction, a segmentation mask, or a depth map. These objectives are related but not identical. Representation stability may help downstream tasks, but it does not guarantee that every downstream loss is stable. Conversely, a segmentation attack can exploit pixel-wise errors that do not dominate a global representation metric.
+
+% \section{Research Questions}
+
+% The thesis investigates four research questions.
+
+% \begin{enumerate}[wide]
+%     \item How vulnerable are standard self-supervised vision encoders under embedding-level and downstream-task adversarial attacks?
+%     \item Does \DeACL robust fine-tuning improve clean or robust performance across classification, segmentation, and depth estimation?
+%     \item Are representation-level attacks sufficient proxies for task-specific attacks?
+%     \item What evaluation protocol is appropriate for robustness claims about reusable foundation encoders?
+% \end{enumerate}
+
+% \section{Contributions}
+
+% The thesis makes three contributions.
+
+% \textbf{First,} it organizes adversarial robustness for SSL encoders around two attack interfaces: \EmbedAttack in encoder space and downstream \PGD-style attacks against task losses. This distinction follows the encoder/adaptor deployment pattern.
+
+% \textbf{Second,} it gives a unified thesis presentation of the supplied robustness resources. The evaluation covers classification on CIFAR10, CIFAR100, and STL10; semantic segmentation on ADE20K, Cityscapes, and PASCAL VOC 2012; and monocular depth estimation on NYU-Depth v2.
+
+% \textbf{Third,} it derives the main lesson for foundation-model evaluation: clean transfer and representation robustness are not enough. A reusable encoder should be reported with clean and adversarial metrics for every relevant downstream task and attack surface.
+
+% \section{Structure}
+
+% \Cref{chap:background} introduces SSL, \DINO-family encoders, downstream adaptation, adversarial attacks, and robust SSL. \Cref{chap:ssl-method} defines the experimental setting, attacks, and \DeACL defense. \Cref{chap:evaluation} reports results. \Cref{chap:discussion} concludes the thesis after the extended-details chapter records related work, hyperparameters, and loss details.

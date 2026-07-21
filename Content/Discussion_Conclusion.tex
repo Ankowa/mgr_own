@@ -1,0 +1,36 @@
+\chapter{Discussion and Conclusion}
+\label{chap:discussion}
+
+This thesis evaluated adversarial robustness of self-supervised vision encoders across downstream tasks. The central result is that robustness does not transfer automatically from representation space to deployed task losses.
+
+\section{Discussion}
+
+\subsection{Robustness Is Interface-Specific}
+
+A foundation encoder is reused through downstream adaptors. The experiments show that this reuse creates multiple attack surfaces. \EmbedAttack targets encoder representations. \PGD, \SegPGD, and \DepthPGD target task outputs. A defense can improve one interface and fail on another.
+
+\DeACL demonstrates this clearly. It aligns clean and adversarial representations and therefore improves \EmbedAttack performance. But it does not optimize segmentation mIoU, classification cross-entropy, or depth RMSE during robustification. Downstream attacks exploit those losses and remain effective. This is not a contradiction; it is evidence that robustness claims must name the objective they defend.
+
+\subsection{Dense Tasks Matter}
+
+Classification is an important benchmark, but it is not enough for reusable vision encoders. Semantic segmentation and depth estimation depend on spatial structure and pixel-wise outputs. They can fail even when a global representation appears more stable. The segmentation results are especially direct: \DeACL raises Cityscapes \EmbedAttack mIoU from 0.06 to 0.31, but \SegPGD still reduces mIoU to 0.03.
+
+Dense tasks also reveal utility trade-offs. Robust fine-tuning can reduce clean performance. For foundation models, this matters because the same encoder is expected to serve many users. Improving one robustness metric while harming clean utility and leaving downstream attacks unresolved may not be a good deployment trade-off.
+
+\section{Limitations}
+
+The evaluation is empirical and bounded. It uses selected \DINO-family encoders, frozen downstream heads, first-order white-box $\ell_\infty$ attacks, and one robust fine-tuning method. Other architectures, larger robust encoders, end-to-end fine-tuning, black-box attacks, physical attacks, corruptions, or certified methods may change quantitative results.
+
+The \DeACL comparison uses the robust encoder available in the supplied resources, not robust versions of every \DINOv model. The conclusion should therefore be read carefully: the results refute the assumption that representation robustification automatically gives downstream robustness, but they do not prove that no future robust SSL method can transfer better.
+
+\section{Future Work}
+
+Future robust SSL methods should train and evaluate on a broader matrix of tasks and losses. One direction is multi-task adversarial fine-tuning that combines representation, classification, segmentation, and depth objectives. Another is adaptor-aware robustness: robustify the encoder while sampling lightweight downstream heads so the representation is stable under a family of task losses rather than a single distance metric.
+
+A second direction is better diagnostics for unknown downstream tasks. Since foundation encoders may be reused in settings not known during training, evaluations should measure how perturbations change global tokens, patch tokens, nearest-neighbor structure, and downstream linearizations. Such diagnostics could identify brittle representations before deployment.
+
+Finally, reporting standards should change. Papers on robust foundation vision models should include clean and adversarial metrics for classification and dense prediction, specify whether attacks are representation-level or task-level, and disclose perturbation budgets, steps, losses, and heads.
+
+\section{Conclusion}
+
+Self-supervised vision encoders are reusable because their representations transfer across tasks. This thesis shows that adversarial robustness does not transfer as easily. Standard \DINO-family encoders are highly vulnerable under both embedding-level and task-specific attacks. \DeACL improves robustness against \EmbedAttack but leaves \PGD, \SegPGD, and \DepthPGD largely effective. Therefore, robustness of a foundation encoder should not be treated as a single model property. It must be evaluated at the interfaces where the encoder is actually used.

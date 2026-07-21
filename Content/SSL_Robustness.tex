@@ -1,0 +1,98 @@
+\chapter{Attack and Defense Methodology}
+\label{chap:ssl-method}
+
+This chapter defines the evaluation methodology. The key design choice is to test both the encoder representation and the downstream task output. This follows the supplied SSL robustness manuscripts and poster resources, which distinguish task-agnostic \EmbedAttack from classification, segmentation, and depth attacks.
+
+\section{Encoder--Adaptor Setting}
+
+Let $f_\theta$ be a frozen or robustly fine-tuned SSL encoder. Let $h_\phi^t$ be an adaptor for downstream task $t$. The deployed predictor is
+\begin{equation}
+    F^t(x)=h_\phi^t(f_\theta(x)).
+\end{equation}
+Tasks considered in this thesis are classification, semantic segmentation, and monocular depth estimation. The encoder is shared, but each task uses a different output space and loss.
+
+The adversary perturbs the input image under an $\ell_\infty$ budget:
+\begin{equation}
+    x_{\mathrm{adv}} = \mathrm{clip}(x+\delta),
+    \qquad \lVert\delta\rVert_\infty \leq \varepsilon.
+\end{equation}
+Unless stated otherwise, $\varepsilon=8/255$, PGD uses 20 steps, step size $2/255$, and random initialization inside the perturbation ball.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.92\linewidth, trim={26 10 0 0}, clip]{ssl_robustness_inference.pdf}
+    \caption{A reusable SSL encoder can be attacked through its representation space or through downstream task heads. Robustness claims should name the attacked interface.}
+    \label{fig:ssl-framework}
+\end{figure}
+
+\section{Embedding-Level Attack}
+
+\EmbedAttack is task-agnostic. It uses no label and no downstream head. For a clean image $x$, it maximizes the distance between clean and perturbed encoder representations:
+\begin{equation}
+    x_{\mathrm{adv}}=
+    \argmax_{\lVert x_{\mathrm{adv}}-x\rVert_\infty\leq \varepsilon}
+    \lVert f_\theta(x_{\mathrm{adv}})-f_\theta(x)\rVert_2^2.
+    \label{eq:embedattack}
+\end{equation}
+This attack matches the representation-level threat model used by several robust SSL methods \parencite{kim2020adversarial,jiang2020robust,fan2021does,luo2023rethinking}. For classification it targets the global representation; for dense tasks it targets patch embeddings because segmentation and depth heads consume spatial tokens.
+
+\section{Task-Specific Attacks}
+
+Task-specific attacks optimize the loss that the deployed system actually uses. They require access to the downstream adaptor, but they are the relevant white-box attacks for deployed applications.
+
+\subsection{Classification PGD}
+
+For classification, the attack maximizes cross-entropy:
+\begin{equation}
+    \delta_{k+1}=\Pi_{[-\varepsilon,\varepsilon]}
+    \left(\delta_k + \alpha\,\mathrm{sign}\left(
+    \nabla_{\delta_k} L_{\mathrm{CE}}(h_{\mathrm{cls}}(f(x+\delta_k)),y)
+    \right)\right).
+    \label{eq:classification-pgd}
+\end{equation}
+The final adversarial image is clipped to the valid pixel range.
+
+\subsection{Semantic Segmentation PGD}
+
+Segmentation has a pixel-wise output, so the attack must degrade many pixels simultaneously. \SegPGD uses a weighted pixel-wise cross-entropy objective that emphasizes currently correct pixels early and balances correct and incorrect pixels later \parencite{gu2022segpgd}. With image size $H\times W$, pixel losses $L_i$, currently correct pixels $P_T$, and incorrect pixels $P_F$, the objective is
+\begin{equation}
+    L_{\mathrm{seg}}=
+    \frac{1-\lambda_t}{HW}\sum_{i\in P_T} L_i
+    +
+    \frac{\lambda_t}{HW}\sum_{j\in P_F} L_j.
+    \label{eq:segpgd}
+\end{equation}
+This avoids wasting all gradient signal on already failed pixels.
+
+\subsection{Depth PGD}
+
+Depth estimation uses a continuous geometric output. \DepthPGD maximizes the depth-estimation training loss:
+\begin{equation}
+    x_{\mathrm{adv}}=
+    \argmax_{\lVert x_{\mathrm{adv}}-x\rVert_\infty\leq\varepsilon}
+    L_{\mathrm{depth}}(h_{\mathrm{depth}}(f(x_{\mathrm{adv}})), y_{\mathrm{depth}}).
+    \label{eq:depthpgd}
+\end{equation}
+The loss combines scale-invariant pixel depth error and multi-scale gradient matching, following the depth resources summarized in the appendix.
+
+\section{Defense: Decoupled Adversarial Contrastive Learning}
+
+\DeACL robustifies a pre-trained encoder by fine-tuning a new encoder $f_R$ while using the original encoder $f$ as a representation teacher \parencite{zhang2022decoupled}. Its two goals are preservation and robustness: $f_R(x)$ should stay close to $f(x)$ on clean images, and $f_R(x_{\mathrm{adv}})$ should stay close to $f_R(x)$ on adversarial images. The objective is
+\begin{equation}
+    L(f_R,f)=d(f_R(x),f(x)) + \gamma d(f_R(x_{\mathrm{adv}}), f_R(x)),
+    \label{eq:deacl}
+\end{equation}
+where $d$ is cosine-distance based and the supplied resources use $\gamma=2$.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.94\linewidth]{deacl.png}
+    \caption{\DeACL fine-tunes a robust encoder by preserving clean teacher representations and aligning adversarial examples with clean robust representations.}
+    \label{fig:deacl}
+\end{figure}
+
+Because \DeACL adversarial examples are generated in representation space, the expected improvement is strongest against \EmbedAttack. Transfer to \PGD, \SegPGD, and \DepthPGD must be measured empirically.
+
+\section{Evaluation Metrics}
+
+Classification uses accuracy, segmentation uses mIoU, and depth estimation uses RMSE. Higher is better for accuracy and mIoU; lower is better for RMSE. Every result is reported in three conditions: clean input, \EmbedAttack input, and task-specific attack input. This separates clean utility from representation robustness and downstream robustness.

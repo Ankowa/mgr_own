@@ -1,0 +1,116 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{Abstract}{i}{chapter*.1}%
+\contentsline {chapter}{\numberline {I}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1}Computer Vision}{1}{section.1.1}%
+\contentsline {section}{\numberline {2}Self-Supervised Learning and Image Encoders}{2}{section.1.2}%
+\contentsline {section}{\numberline {3}This work: SSL and Adversarial Examples}{3}{section.1.3}%
+\contentsline {chapter}{\numberline {II}Background}{5}{chapter.2}%
+\contentsline {section}{\numberline {1}SSL Vision Encoders}{5}{section.2.1}%
+\contentsline {subsection}{\numberline {1.1}Training Paradigms}{6}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {1.2}Similar Images and SSL}{6}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {1.3}The Great Collapse}{6}{subsection.2.1.3}%
+\contentsline {subsection}{\numberline {1.4}Dissimilar Images and Contrastive Learning}{6}{subsection.2.1.4}%
+\contentsline {subsection}{\numberline {1.5}Evaluating SSL Image Encoders}{7}{subsection.2.1.5}%
+\contentsline {section}{\numberline {2}Adversarial Examples}{7}{section.2.2}%
+\contentsline {chapter}{\numberline {III}Related Work}{9}{chapter.3}%
+\contentsline {section}{\numberline {1}From Feature Learning to Foundation Encoders}{9}{section.3.1}%
+\contentsline {section}{\numberline {2}Self-Supervised Learning Objectives}{10}{section.3.2}%
+\contentsline {section}{\numberline {3}Downstream Evaluation Protocols}{11}{section.3.3}%
+\contentsline {section}{\numberline {4}Adversarial Examples and PGD}{11}{section.3.4}%
+\contentsline {section}{\numberline {5}Adversarial Robustness in SSL}{12}{section.3.5}%
+\contentsline {section}{\numberline {6}Feature Robustness and Transfer}{13}{section.3.6}%
+\contentsline {section}{\numberline {7}Evaluation Gaps Addressed by This Thesis}{13}{section.3.7}%
+\contentsline {chapter}{\numberline {IV}Attack and Defense Methodology}{15}{chapter.4}%
+\contentsline {section}{\numberline {1}Encoder--Adaptor Setting}{15}{section.4.1}%
+\contentsline {section}{\numberline {2}Embedding-Level Attack}{15}{section.4.2}%
+\contentsline {section}{\numberline {3}Task-Specific Attacks}{16}{section.4.3}%
+\contentsline {subsection}{\numberline {3.1}Classification PGD}{16}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {3.2}Semantic Segmentation PGD}{17}{subsection.4.3.2}%
+\contentsline {subsection}{\numberline {3.3}Depth PGD}{17}{subsection.4.3.3}%
+\contentsline {section}{\numberline {4}Defense: Decoupled Adversarial Contrastive Learning}{17}{section.4.4}%
+\contentsline {section}{\numberline {5}Evaluation Metrics}{18}{section.4.5}%
+\contentsline {chapter}{\numberline {V}Experimental Design}{19}{chapter.5}%
+\contentsline {section}{\numberline {1}Design Goals}{19}{section.5.1}%
+\contentsline {section}{\numberline {2}Encoder Choices}{20}{section.5.2}%
+\contentsline {section}{\numberline {3}Task Choices}{20}{section.5.3}%
+\contentsline {subsection}{\numberline {3.1}Classification}{20}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {3.2}Semantic Segmentation}{21}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {3.3}Depth Estimation}{21}{subsection.5.3.3}%
+\contentsline {section}{\numberline {4}Attack Protocol}{21}{section.5.4}%
+\contentsline {section}{\numberline {5}Representation Attack Details}{22}{section.5.5}%
+\contentsline {section}{\numberline {6}Classification Attack Details}{22}{section.5.6}%
+\contentsline {section}{\numberline {7}Segmentation Attack Details}{23}{section.5.7}%
+\contentsline {section}{\numberline {8}Depth Attack Details}{23}{section.5.8}%
+\contentsline {section}{\numberline {9}Defense Protocol}{23}{section.5.9}%
+\contentsline {section}{\numberline {10}Metrics and Interpretation}{24}{section.5.10}%
+\contentsline {section}{\numberline {11}Validity Considerations}{24}{section.5.11}%
+\contentsline {chapter}{\numberline {VI}Threat Model and Evaluation Philosophy}{27}{chapter.6}%
+\contentsline {section}{\numberline {1}Protected Object}{27}{section.6.1}%
+\contentsline {section}{\numberline {2}Attacker Knowledge}{28}{section.6.2}%
+\contentsline {section}{\numberline {3}Attacker Goals}{28}{section.6.3}%
+\contentsline {section}{\numberline {4}Perturbation Set}{29}{section.6.4}%
+\contentsline {section}{\numberline {5}Defender Capabilities}{29}{section.6.5}%
+\contentsline {section}{\numberline {6}Why Task-Specific Adversarial Training Is Not the Baseline}{29}{section.6.6}%
+\contentsline {section}{\numberline {7}Evaluation Units}{30}{section.6.7}%
+\contentsline {section}{\numberline {8}Clean Utility as a Constraint}{30}{section.6.8}%
+\contentsline {section}{\numberline {9}Failure Criteria}{31}{section.6.9}%
+\contentsline {section}{\numberline {10}Adaptive Evaluation}{31}{section.6.10}%
+\contentsline {section}{\numberline {11}Scope of Claims}{32}{section.6.11}%
+\contentsline {section}{\numberline {12}Practical Deployment Interpretation}{32}{section.6.12}%
+\contentsline {section}{\numberline {13}Summary}{32}{section.6.13}%
+\contentsline {chapter}{\numberline {VII}Experimental Evaluation}{35}{chapter.7}%
+\contentsline {section}{\numberline {1}Experimental Setup}{35}{section.7.1}%
+\contentsline {section}{\numberline {2}Linear Classification}{35}{section.7.2}%
+\contentsline {section}{\numberline {3}Semantic Segmentation}{36}{section.7.3}%
+\contentsline {section}{\numberline {4}Depth Estimation}{37}{section.7.4}%
+\contentsline {section}{\numberline {5}Fine-Tuning Dynamics}{37}{section.7.5}%
+\contentsline {section}{\numberline {6}Summary of Findings}{37}{section.7.6}%
+\contentsline {chapter}{\numberline {VIII}Extended Analysis of Results}{39}{chapter.8}%
+\contentsline {section}{\numberline {1}How to Read the Tables}{39}{section.8.1}%
+\contentsline {section}{\numberline {2}Classification: Clean Accuracy and Attack Collapse}{40}{section.8.2}%
+\contentsline {section}{\numberline {3}Classification: What \textnormal {\textsc {DeACL}}\xspace Fixes}{40}{section.8.3}%
+\contentsline {section}{\numberline {4}Segmentation: Dense Prediction Exposes the Gap}{41}{section.8.4}%
+\contentsline {section}{\numberline {5}Segmentation: \textnormal {\textsc {DeACL}}\xspace and Task Mismatch}{41}{section.8.5}%
+\contentsline {section}{\numberline {6}Depth Estimation: Geometry as a Different Failure Mode}{42}{section.8.6}%
+\contentsline {section}{\numberline {7}Depth Estimation: Limits of \textnormal {\textsc {DeACL}}\xspace }{42}{section.8.7}%
+\contentsline {section}{\numberline {8}Fine-Tuning Curves and Early Gains}{43}{section.8.8}%
+\contentsline {section}{\numberline {9}Cross-Dataset Patterns}{43}{section.8.9}%
+\contentsline {section}{\numberline {10}What Would Count as Transfer?}{44}{section.8.10}%
+\contentsline {section}{\numberline {11}Implications for Benchmark Design}{44}{section.8.11}%
+\contentsline {chapter}{\numberline {IX}Reproducibility and Resource Integration}{45}{chapter.9}%
+\contentsline {section}{\numberline {1}Resource Categories}{45}{section.9.1}%
+\contentsline {section}{\numberline {2}Template Integration}{46}{section.9.2}%
+\contentsline {section}{\numberline {3}Bibliography Integration}{46}{section.9.3}%
+\contentsline {section}{\numberline {4}Figure Integration}{46}{section.9.4}%
+\contentsline {section}{\numberline {5}Table Integration}{47}{section.9.5}%
+\contentsline {section}{\numberline {6}Why the Case-Study Chapter Was Removed}{47}{section.9.6}%
+\contentsline {section}{\numberline {7}Length Expansion Strategy}{48}{section.9.7}%
+\contentsline {section}{\numberline {8}Reproducibility Limits}{48}{section.9.8}%
+\contentsline {section}{\numberline {9}Document Build Considerations}{49}{section.9.9}%
+\contentsline {section}{\numberline {10}Expected Page Count After Expansion}{49}{section.9.10}%
+\contentsline {section}{\numberline {11}Checklist for Final Review}{49}{section.9.11}%
+\contentsline {chapter}{\numberline {X}Extended Details}{51}{chapter.10}%
+\contentsline {section}{\numberline {1}Additional Robust SSL Related Work}{51}{section.10.1}%
+\contentsline {section}{\numberline {2}Depth Loss Details}{51}{section.10.2}%
+\contentsline {section}{\numberline {3}Hyperparameters}{52}{section.10.3}%
+\contentsline {section}{\numberline {4}Dataset Notes}{52}{section.10.4}%
+\contentsline {section}{\numberline {5}Attack Pseudocode}{53}{section.10.5}%
+\contentsline {section}{\numberline {6}Notation Summary}{53}{section.10.6}%
+\contentsline {section}{\numberline {7}Additional Validity Threats}{53}{section.10.7}%
+\contentsline {chapter}{\numberline {XI}Limitations and Future Work}{55}{chapter.11}%
+\contentsline {section}{\numberline {1}Architectural Scope}{55}{section.11.1}%
+\contentsline {section}{\numberline {2}Task Scope}{56}{section.11.2}%
+\contentsline {section}{\numberline {3}Attack Scope}{56}{section.11.3}%
+\contentsline {section}{\numberline {4}Defense Scope}{57}{section.11.4}%
+\contentsline {section}{\numberline {5}Evaluation Reporting}{57}{section.11.5}%
+\contentsline {section}{\numberline {6}Possible Extensions of This Thesis}{58}{section.11.6}%
+\contentsline {section}{\numberline {7}Ethical and Deployment Considerations}{58}{section.11.7}%
+\contentsline {section}{\numberline {8}Summary}{59}{section.11.8}%
+\contentsline {chapter}{\numberline {XII}Discussion and Conclusion}{61}{chapter.12}%
+\contentsline {section}{\numberline {1}Discussion}{61}{section.12.1}%
+\contentsline {subsection}{\numberline {1.1}Robustness Is Interface-Specific}{61}{subsection.12.1.1}%
+\contentsline {subsection}{\numberline {1.2}Dense Tasks Matter}{61}{subsection.12.1.2}%
+\contentsline {section}{\numberline {2}Limitations}{62}{section.12.2}%
+\contentsline {section}{\numberline {3}Future Work}{62}{section.12.3}%
+\contentsline {section}{\numberline {4}Conclusion}{63}{section.12.4}%
+\providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

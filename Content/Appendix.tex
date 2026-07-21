@@ -1,0 +1,119 @@
+\chapter{Extended Details}
+\label{chap:extended-details}
+
+\section{Additional Robust SSL Related Work}
+\label{sec:robust-ssl-additional}
+
+The main text centers on \DeACL. Other robust SSL methods frame the setting: RoCL uses adversarial contrastive examples \parencite{kim2020adversarial}; ACL enforces adversarial consistency \parencite{jiang2020robust}; AdvCL adds pseudo-labels \parencite{fan2021does}; CLAE builds adversarial contrastive examples \parencite{ho2020CLAE}; and DYNACL schedules augmentations around the augmentation--robustness conflict \parencite{luo2023rethinking}.
+
+These methods show robustness-aware SSL can work, often by changing pre-training. \DeACL separates large-scale SSL pre-training from robust fine-tuning. This thesis does not dismiss representation fine-tuning: it strongly helps against \EmbedAttack. It shows that representation-only objectives do not guarantee downstream-loss robustness.
+
+\section{Depth Loss Details}
+\label{sec:depth-loss-details}
+
+Depth estimation combines scale-invariant pixel error with spatial gradient matching. Let $g_i=\log \tilde{d}_i-\log d_i$, where $\tilde{d}_i$ is predicted depth and $d_i$ is ground truth. The scale-invariant pixel loss is
+\begin{equation}
+    L_{\mathrm{pixel}}
+    =
+    \alpha
+    \sqrt{
+        \frac{1}{T}\sum_i g_i^2
+        -
+        \frac{\rho}{T^2}\left(\sum_i g_i\right)^2
+    },
+\end{equation}
+with $\alpha=1$ and $\rho=0.85$ in the supplied setup. Multi-scale gradient loss penalizes log-depth residual-gradient differences:
+\begin{equation}
+    L_{\mathrm{grad}}=
+    \frac{1}{n}\sum_k\sum_i
+    \left|\nabla_x R_i^k\right|+
+    \left|\nabla_y R_i^k\right|.
+\end{equation}
+The depth training and attack objective is
+\begin{equation}
+    L_{\mathrm{depth}}=\frac{1}{2}L_{\mathrm{grad}}+L_{\mathrm{pixel}}.
+\end{equation}
+
+\section{Hyperparameters}
+\label{sec:hyperparameters}
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabularx}{\textwidth}{lX}
+    \toprule
+    Component & Hyperparameters \\
+    \midrule
+    \EmbedAttack & $\ell_\infty$ budget $\varepsilon=8/255$, 20 PGD steps, step size $2/255$, random uniform initialization in the $\varepsilon$ ball. \\
+    Classification \PGD & $\ell_\infty$ budget $\varepsilon=8/255$, 20 PGD steps, step size $2/255$, cross-entropy objective. \\
+    \SegPGD & Same budget and PGD schedule, with weighted pixel-wise cross-entropy over correct and incorrect pixels. \\
+    \DepthPGD & Same budget and PGD schedule, with the depth-estimation loss in \Cref{sec:depth-loss-details}. \\
+    Classification head & Adam, learning rate 0.5, batch size 16, 5 epochs, random horizontal flips. \\
+    Segmentation head & AdamW, learning rate $10^{-4}$, batch size 16, weight decay 0.001, 50 epochs, random cropping, horizontal and vertical flips, sliding-window inference. \\
+    Depth head & AdamW, learning rate $10^{-4}$, batch size 128, weight decay 0.01, 20 epochs. \\
+    \DeACL fine-tuning & SGD with momentum 0.9, learning rate 0.05 with cosine schedule, 10 warmup epochs, 100 total epochs, batch size 128, $\gamma=2$, adversarial budget $4/255$, random crops and flips. \\
+    \bottomrule
+    \end{tabularx}
+    \caption{Hyperparameters from the supplied SSL robustness resources.}
+    \label{tab:hyperparameters}
+\end{table}
+
+\section{Dataset Notes}
+\label{sec:dataset-notes}
+
+CIFAR10 and CIFAR100 are small-image classification datasets for fast linear-probe tests. CIFAR10 has ten coarse classes; CIFAR100 has one hundred finer classes. Both show that high clean accuracy does not prevent task-specific PGD failure.
+
+STL10 contains natural images used in representation learning. It gives \DeACL the largest task-specific PGD value. This does not overturn the conclusion, but suggests dataset distribution affects transfer from representation to classification robustness.
+
+ADE20K, Cityscapes, and PASCAL VOC 2012 cover diverse scenes, urban driving, and object-centric images. Using all three avoids a one-dataset segmentation conclusion.
+
+NYU-Depth v2 is an indoor benchmark with continuous outputs, testing whether perturbations damage geometry, not only labels.
+
+\section{Attack Pseudocode}
+\label{sec:attack-pseudocode}
+
+All PGD-style attacks share one procedure; only losses differ.
+
+\begin{enumerate}[wide]
+    \item Choose a clean image $x$, target $y$, pipeline $F$, budget $\varepsilon$, step size $\alpha$, and steps $K$.
+    \item Initialize $\delta_0$ uniformly in $[-\varepsilon,\varepsilon]$ and clip $x+\delta_0$ to the valid pixel range.
+    \item For each step $k=0,\ldots,K-1$, compute the selected loss on $x+\delta_k$.
+    \item Update $\delta_{k+1}$ in the gradient-sign direction.
+    \item Project $\delta_{k+1}$ to $[-\varepsilon,\varepsilon]$ and clip the perturbed image.
+    \item Evaluate the final adversarial image with the task metric.
+\end{enumerate}
+
+\EmbedAttack uses representation distance; classification \PGD uses cross-entropy; \SegPGD uses weighted pixel-wise cross-entropy; and \DepthPGD uses depth loss. The shared skeleton enables comparison under one perturbation budget.
+
+\section{Notation Summary}
+\label{sec:notation}
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabularx}{\textwidth}{lX}
+    \toprule
+    Symbol & Meaning \\
+    \midrule
+    $x$ & Clean input image. \\
+    $x_{\mathrm{adv}}$ & Adversarially perturbed image. \\
+    $\delta$ & Perturbation added to the clean image. \\
+    $\varepsilon$ & Maximum $\ell_\infty$ perturbation budget. \\
+    $f_\theta$ & Self-supervised vision encoder. \\
+    $f_R$ & Robust encoder produced by \DeACL fine-tuning. \\
+    $h_\phi^t$ & Downstream adaptor for task $t$. \\
+    $L_{\mathrm{CE}}$ & Cross-entropy classification loss. \\
+    $L_{\mathrm{seg}}$ & Segmentation attack loss. \\
+    $L_{\mathrm{depth}}$ & Depth-estimation loss used by \DepthPGD. \\
+    \bottomrule
+    \end{tabularx}
+    \caption{Notation used throughout the thesis.}
+    \label{tab:notation}
+\end{table}
+
+\section{Additional Validity Threats}
+\label{sec:validity-additional}
+
+Several validity threats remain. The robust encoder is only available for \DINO ViT-B/16, limiting architectural conclusions. The lightweight heads may differ from stronger heads in clean metrics and attack surfaces. The attacks are digital white-box attacks; physical perturbations, distribution shift, corruptions, and black-box attacks are excluded.
+
+Thesis expansion is not experimental expansion: the rewrite explains supplied experiments but adds no runs. Robust SSL moves quickly, and future methods may improve transfer through multi-task losses, stronger augmentations, or certified objectives. The conclusion warns against assuming transfer; it does not prove transfer impossible.

@@ -1,0 +1,161 @@
+\chapter{Background}
+\label{chap:background}
+
+% 5 pages imo
+
+In this chapter I introduce the literature background for the thesis. I begin with a comprehensive overview of existing and examined SSL training frameworks, focusing on the architectures, training, evaluation, and downstream tasks. Then, I provide a breakdown on adversarial examples, explaining the theory behind them, their universality, current attacks, and pair them with current SSL paradigm.
+
+\section{SSL Vision Encoders}
+
+Contrary to classification task, where the goal is to predict a correct class $c\in\{1, 2,...,K\}$ from possible $K$ classees, based on the image $x\in\mathbb{R}^{C\times H\times W}$, the goal of SSL encoders is more general. Classifiers learn based on labeled data $(x, c)$, under supervised learning paradigm,~\ie the correct prediction is well known, and the sole training objective is to teach the NN to output a specific (correct) class $c$ for each image $x$.
+
+SSL abandons the luxury of labeled data. Intuitively, most of the data one can obtain via Internet-scale scraping is unlabeled, and the labeling requires costly human labor. Without labels, SSL posits an alternative training objective,~\ie representation learning. Representations $z\in\mathbb{R}^d$ are understood as high-dimensional ($d$ denotes number of dimensions), continuous vectors. After training, the SSL model $f_\theta: \mathbb{R}^{C\times H\times W}\rightarrow\mathbb{R}^d$ (with parameters $\theta$) should output rich and expressive representation $z$ of any image $x$, enabling further downstream use of the representations.
+
+\subsection{Training Paradigms}
+
+Notably, what exactly is a "rich and expressive representation $z$ of any image $x$, enabling further downstream use of the representations" is not well-grounded in theory. Moreover, one cannot compute gradient of such an objective. 
+
+More precise view of the above goal is: representations $z_1$, $z_2$ of two \textit{similar} images $x_1$, $x_2$ should be \textit{closer} than representations $z_1$, $z_3$ of two \textit{dissimilar} images $x_1$, $x_3$. Intuitively, an image of a dog should have a representation that lies close to other images of dogs in the embedding space, and should have a representation that lies far from images depicting circuit boards. 
+
+\subsection{Similar Images and SSL}
+\label{sec:similar_imgs_ssl}
+
+Defining "similarity" of images is tricky, especially since images can be similar in many ways. The similarity may be structural, compositional, semantic, stylistic, etc. To avoid ambiguities and human-based biases, the default approach is to augment \textit{the same} image multiple times, producing multiple "views". These views are (likely) similar to each other, and the similarity is as broad as imaginable. 
+
+Representations' "closeness" is easier to precisely formulate. Since embeddings are continuous vectors, the natural approach is to use an abstract \textit{distance} function $\text{dist}: \mathbb{R}^d\times\mathbb{R}^d\rightarrow\mathbb{R}$, for example L2 distance or cosine similarity. 
+
+Effectively, given a dataset of $N$ unlabeled images $D=\{x_i\},i=1,...,N$ the SSL training objective utilizing multiple views of the same image is as follows:
+
+\begin{equation}
+    \label{eq:loss_ssl_sim}
+    \theta^*=\underset{\theta}{\argmin}
+        \mathbb{E}_{x\sim D,\mathcal{A}_i\sim{\mathbb{A}},\mathcal{A}_j\sim\mathbb{A}}
+        \left[
+        \text{dist}(\mathcal{A}_i(x),\mathcal{A}_j(x))
+        \right]\text{,}
+\end{equation}
+where $\mathbb{A}=\{\mathcal{A}_1,\mathcal{A}_2,...\}$ is a set of augmentations $\mathcal{A}_i: \mathbb{R}^{C\times H\times W} \rightarrow \mathbb{R}^{C\times H\times W}$.
+
+\subsection{The Great Collapse}
+
+Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a network $f_\theta^*: \mathbb{R}^{C\times H\times W}->[0]^d$. To address that HERE SIMSIAM AND DINO ONCE I HAVE INTERNET TO WRITE IT AS GOOD AS IT GETS.
+
+\subsection{Dissimilar Images and Contrastive Learning}
+
+While \textit{similar} images' embeddings should stay close, it is also important that \textit{dissimilar} images' embeddings stay far from each other. Analogously to~\cref{sec:similar_imgs_ssl}, it is not clear what does exactly mean that two images are dissimilar. 
+
+The trivial solution is to assume that two different images are dissimilar from the definition. Contrastive Learning assumes exactly that, with the InfoNCE training loss defined as:
+
+\begin{equation}
+    \label{eq:infonce}
+    \text{InfoNCE}=
+\end{equation}
+
+Intuitively, this training objective forces the NN to "push away" the representations of all alterantive images from the original positive image. Such a paradigm has been widely adopted HERE MORE ABOUT SIMCLR, AND MAYBE ABOUT CLIP.
+
+ALSO ABOUT THE TRAINING DATA, IMAGENET, HOW MANY EPOCHS, THAT A LOT OF STUFF IS STANDARDIZED ETC.
+
+\subsection{Evaluating SSL Image Encoders}
+
+The generality of the SSL training task (\cref{eq:loss_ssl_sim,eq:infonce}) comes at a cost. One can not simply look at the produced embeddings $z$ and assess their quality, since their dimension $d$ is often too high (above 100, sometimes even 1000) to allow for meaningful analysis, yet alone a universal quality metric.
+
+Instead, researchers focus on measuring how useful the embeddings are to help solve well-defined tasks, like classification or semantic segmentation. For classification, the dominant approach is to select a downstream dataset $D_T=\{(x_i,c_i)\}, i=1,...,N_T$ of $N_T$ labeled images, and based on the representations from trained $f_\theta$, fit a simple linear model $l_\mathbf{w}: \mathbb{R}^d \rightarrow \{1,...,K\}$ minimizing cross-entropy loss $\text{CELoss}=-\log(1-p_i)$, where $p_i$ is the probability of i-th class returned by $l_\mathbf{w}$. The final encoder+linear model classification stack is defined as
+
+\begin{equation}
+    (l_\mathbf{w}\circ f_\theta): \mathbb{R}^{C\times H\times W} \rightarrow \{1,...,K\}\text{,}
+\end{equation}
+and its downstream task performance is evaluated as accuracy on the validation set of the training data $D_T$. The established approach is to perform a single training epoch on the downstream data.
+
+TODO HERE ABOUT segmentation
+
+
+\section{Adversarial Examples}
+
+While most of the field focused on making the models better and more general, TODO CITET indentified a grave vulnerability of almost every neural network that exists. With some assumptions (introduced later) and little effort, any NN can be forced to output a wrong prediction with high consistency. What is even worse, such an adversarial input to the NN can be made indistinguishable from a real, benign input, and can evade detection. Changing a few pixel values by extremely small values (for example by at most 8/255 of the full pixel range) is enough to reliably fool a vast majority of image-based NNs, regardless of their training data, training objective, architecture, hyperparameters, preprocessing, and so on.
+
+TODO CITIT AGAIN dubbed their discovery as "adversarial examples". More precisely, an adversarial example $x_{adv}=x+\delta$ is a benign sample $x$ (here: image) and its perturbation $\delta$, crafted explicitly to cause misprediction of a victim model $f_V$. To limit the difference between clean and adversarial image, $\delta$ is oftentimes constrained to be $\left\|\delta\right\|_p<\epsilon$, where $p\in\{0,1,2,\infty\}$. To ensure imperceptibility, $\epsilon$ is usually very small,~\eg $8/255$ for $L_\infty$ norm, meaning each pixel of the image is changed by at most $8/255$ (assuming pixel values are in $[0,1]$).
+
+Another important element of adversarial examples is the optimization procedure to obtain $\delta$. Given an adversarial objective, 
+
+Here more about the theory that the errors will accumulate etc
+
+PGD here
+
+SegPGD here
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% This chapter summarizes the technical background needed for the robustness evaluation: reusable vision encoders, SSL objectives, downstream tasks, adversarial attacks, and robust SSL defenses.
+
+% \section{Foundation Vision Encoders}
+
+% Foundation models are trained at scale and then adapted to tasks that are not fixed during pre-training \parencite{bommasani2021opportunities}. In vision, the foundation component is often an encoder $f_\theta$ that maps an image $x$ to a representation $z=f_\theta(x)$. A downstream adaptor $h_\phi$ maps $z$ to the task output. For classification the output is a class label; for segmentation it is a pixel-label map; for depth estimation it is a dense continuous depth map.
+
+% Vision Transformers (ViTs) are a natural backbone for this setting \parencite{dosovitskiy2020image}. An image is divided into patches, each patch is embedded as a token, and transformer blocks process the token sequence. Classification can use a class token or pooled token, while dense tasks use patch tokens and upsampling heads. The architecture therefore exposes both global and spatial representations.
+
+% \section{Self-Supervised Learning}
+
+% SSL learns representations without manual labels. A common formulation samples two augmentations $x_1$ and $x_2$ of the same image and trains the encoder so that their representations agree \parencite{chen2020simple,balestriero2023cookbook}. SimCLR uses a contrastive objective that attracts positive pairs and repels negatives \parencite{chen2020simple}. SimSiam removes explicit negatives and uses a stop-gradient Siamese structure \parencite{simsiam}.
+
+% \DINO uses self-distillation \parencite{caron2021dino}. A student network predicts the output distribution of a teacher network on a different augmented view; the teacher is updated as an exponential moving average of the student. Centering and sharpening avoid collapse. \DINO features are especially relevant because they transfer well to ViT downstream tasks.
+
+% \DINOv extends this line at larger scale and with stronger training recipes \parencite{oquab2024dinov2}. It is important for this thesis because its representations are explicitly used for diverse tasks, including dense prediction. A robustness evaluation that only tests linear classification is therefore narrower than the claimed deployment value.
+
+% \section{Downstream Tasks}
+
+% \textbf{Linear classification} is the standard SSL evaluation protocol. The encoder is frozen and a linear classifier is trained on top of its representation \parencite{chen2020simple,simsiam}. Accuracy measures how linearly separable the learned representation is.
+
+% \textbf{Semantic segmentation} assigns a class to every pixel. Fully convolutional networks established the dense prediction setting \parencite{long2017segmentation}, and UPerNet introduced unified multi-scale parsing for scene understanding \parencite{xiao2018unified}. For frozen ViTs, segmentation heads consume patch tokens, upsample logits, and optimize pixel-wise cross-entropy. Performance is reported as mean intersection-over-union (mIoU).
+
+% \textbf{Monocular depth estimation} predicts a depth value from a single RGB image. It is dense like segmentation, but the output is continuous and geometric. Depth training often combines pixel-wise scale-invariant errors with gradient or smoothness terms \parencite{godard2019depthestimation,MegaDepthLi18,AdaBins}. This thesis reports root mean squared error (RMSE), where lower is better.
+
+% \section{Adversarial Robustness}
+
+% Adversarial examples are small perturbations that cause incorrect or degraded predictions \parencite{biggio2013evasion,szegedy2014intriguing}. For a task loss $L$, a white-box $\ell_\infty$ attack solves
+% \begin{equation}
+%     \delta^\star =
+%     \argmax_{\lVert\delta\rVert_\infty \leq \varepsilon}
+%     L(h_\phi(f_\theta(x+\delta)), y).
+% \end{equation}
+% Projected gradient descent (PGD) approximately solves this objective through iterative gradient ascent and projection back to the allowed perturbation ball \parencite{madry2018towards}.
+
+% For SSL encoders, the attacked object is ambiguous. Without a downstream head, an attacker can maximize representation distance. With a deployed head, the attacker can maximize classification cross-entropy, segmentation loss, or depth loss. The distinction is central: a defense optimized for one objective may not protect the others.
+
+% \section{Robust Self-Supervised Learning}
+
+% Robust SSL methods adapt adversarial training to unlabeled representation learning. RoCL aligns clean and adversarial contrastive views \parencite{kim2020adversarial}. ACL enforces adversarial consistency during contrastive learning \parencite{jiang2020robust}. AdvCL incorporates pseudo-label information \parencite{fan2021does}. CLAE constructs adversarial contrastive examples \parencite{ho2020CLAE}. DYNACL studies the tension between strong augmentations and robustness, using dynamic augmentation schedules \parencite{luo2023rethinking}.
+
+% \DeACL is the defense evaluated here \parencite{zhang2022decoupled}. Instead of robustly pre-training from scratch, it starts from a pre-trained encoder $f$ and fine-tunes a robust encoder $f_R$. The objective preserves clean representations while aligning clean and adversarial representations:
+% \begin{equation}
+%     L(f_R,f) = d(f_R(x), f(x)) + \gamma d(f_R(x_{\mathrm{adv}}), f_R(x)).
+%     \label{eq:background-deacl}
+% \end{equation}
+% The adversarial example $x_{\mathrm{adv}}$ is produced by maximizing a representation-distance objective. This design makes \DeACL computationally attractive, but it also motivates the thesis question: a defense trained on representation distance may not transfer to downstream losses.

@@ -1,0 +1,94 @@
+\chapter{Experimental Design}
+\label{chap:experimental-design}
+
+This chapter expands the design decisions behind the empirical evaluation. The following chapter reports results; this chapter explains why the selected encoders, tasks, attacks, metrics, and tables form a fair test of the thesis question. The guiding principle is that evaluation should match how an SSL encoder is reused: a single encoder is paired with multiple downstream heads, and attacks can target either the shared representation or a task-specific output.
+
+\section{Design Goals}
+
+The first design goal is separation. The encoder and downstream adaptor should be conceptually distinct. If a model is robust only after full task-specific adversarial fine-tuning, then the robustness belongs to the full pipeline, not to the reusable encoder alone. This thesis therefore evaluates frozen encoders with lightweight downstream heads. That makes the experiment stricter for the encoder and more directly connected to foundation-model reuse.
+
+The second design goal is breadth without losing interpretability. A complete foundation-model benchmark could include dozens of tasks. Such a benchmark would be useful but hard to interpret in a thesis. The selected tasks instead form a minimal diverse set. Classification is the standard SSL benchmark. Segmentation tests dense semantic prediction. Depth tests dense continuous geometry. If robustness does not transfer across this small set, then it should not be assumed for larger sets.
+
+The third design goal is attack comparability. All attacks operate within the same image-space perturbation budget, but they optimize different losses. This keeps the visual perturbation constraint fixed while allowing the attack interface to vary. When a task-specific attack is stronger than \EmbedAttack, the difference can be attributed to the objective rather than to a larger perturbation budget.
+
+\section{Encoder Choices}
+
+The standard encoders are \DINO ViT-B/16, \DINOv ViT-S/14, and \DINOv ViT-B/14. These encoders are appropriate because they represent strong SSL vision backbones and support the token structure needed for dense tasks. \DINO is also the basis for the available \DeACL robust encoder in the supplied resources. This makes the standard-vs-robust comparison concrete rather than hypothetical.
+
+The robust encoder is \DINO ViT-B/16 after \DeACL fine-tuning. This choice is constrained by the available resource results and by the purpose of the thesis. The goal is not to produce every possible robust version of every encoder. The goal is to test a state-of-the-art representation-level robustification method and ask whether it transfers to downstream tasks. \DeACL is well suited because its objective is explicit and decoupled: preserve the original representation and align clean/adversarial robust representations.
+
+It would be ideal to robustly fine-tune \DINOv ViT-S/14 and \DINOv ViT-B/14 as well. That extension is left for future work. The current comparison is still informative because the \DeACL rows can be compared against the matching standard \DINO ViT-B/16 rows. The stronger \DINOv rows show what clean and attacked performance look like for larger or newer standard encoders.
+
+\section{Task Choices}
+
+\subsection{Classification}
+
+Classification is included because it is the historical baseline for SSL evaluation. CIFAR10 and CIFAR100 test small natural-image classification with different label granularities \parencite{krizhevsky2009learning}. CIFAR10 is coarse and often easier; CIFAR100 is finer and usually more difficult. STL10 is also useful because it is closer to ImageNet-style natural images and has often been used in representation-learning evaluation \parencite{coates2011analysis}.
+
+A linear head is intentionally simple. It tests whether the frozen representation is linearly usable and whether adversarial perturbations destroy that use. More complex heads might improve clean accuracy, but they could also introduce new robustness properties. The point here is not to maximize accuracy; it is to compare clean and attacked conditions under a standard SSL protocol.
+
+\subsection{Semantic Segmentation}
+
+Segmentation extends the evaluation from global labels to pixel labels. ADE20K, Cityscapes, and PASCAL VOC 2012 represent different segmentation regimes \parencite{ADE1,ADE2,Cordts2016cityScapes,Everingham10pascalVoc}. ADE20K is scene-centric and diverse. Cityscapes focuses on urban driving scenes. PASCAL VOC contains object-centric categories. This variety matters because robustness should not be evaluated on only one visual domain.
+
+The segmentation head uses patch representations and upsampling. This is intentionally aligned with ViT deployment: patch tokens carry spatial information, and dense heads transform those tokens into pixel predictions. A representation attack that targets only a global token would be mismatched, so the dense-task \EmbedAttack uses spatial representations. This design follows the principle that even task-agnostic attacks must choose the representation component relevant to the downstream head.
+
+\subsection{Depth Estimation}
+
+Depth estimation adds a continuous dense task. NYU-Depth v2 is an indoor RGB-D benchmark widely used for monocular depth estimation \parencite{Silberman2012NYU}. The task is different from segmentation in two ways. First, the output is continuous, so small output changes can accumulate into large RMSE. Second, depth is geometric; errors in local gradients can distort surfaces and boundaries.
+
+Including depth prevents the thesis from equating dense prediction with segmentation. A robust encoder for segmentation may still fail for depth because the head and loss are different. Conversely, a perturbation that maximizes representation distance may not align with the depth loss. This makes \DepthPGD an important downstream attack.
+
+\section{Attack Protocol}
+
+All attacks use a bounded $\ell_\infty$ perturbation. The default budget is $\varepsilon=8/255$, with 20 PGD steps and step size $2/255$. This setup is standard enough to make results comparable to prior robustness work, while still exposing severe failures in the evaluated encoders.
+
+The perturbation is initialized randomly inside the allowed ball. Random starts reduce the chance that the attack is trapped by a weak local region near the clean image. Each step follows the sign of the gradient of the selected objective, and projection enforces the constraint. This procedure is simple, but it is a strong first-order white-box baseline.
+
+\section{Representation Attack Details}
+
+\EmbedAttack is downstream-agnostic in the sense that it does not use labels or task losses. However, it is not representation-agnostic. The selected representation must match the downstream use. For classification, the global representation is the natural target. For dense prediction, patch tokens are the natural target because the downstream head consumes spatial token features.
+
+This distinction is important. A weak implementation of \EmbedAttack could target a representation component that the downstream head barely uses. Such an attack would underestimate representation vulnerability. The thesis therefore treats \EmbedAttack as an encoder-interface attack that should be adapted to the representation path used by the downstream task.
+
+The result is a fairer comparison with task-specific attacks. \EmbedAttack receives no labels and no head gradients, but it is allowed to disturb the relevant encoder outputs. If it already destroys downstream performance, then the encoder representation is highly fragile. If it fails while task-specific attacks succeed, then downstream heads expose additional vulnerabilities.
+
+\section{Classification Attack Details}
+
+Classification \PGD maximizes cross-entropy on the linear head. This is the most direct white-box attack for the classification pipeline. It has access to the encoder and head, differentiates through both, and updates the image perturbation.
+
+The classification results are useful for two reasons. First, they connect the thesis to prior robust SSL work, which often reports robust linear-probe accuracy. Second, they provide a baseline for comparing dense tasks. If \DeACL improves classification \EmbedAttack accuracy but not classification \PGD accuracy, then even the standard task reveals a gap between representation robustness and task robustness.
+
+\section{Segmentation Attack Details}
+
+Segmentation \PGD must handle the fact that the output has many pixels. A naive average pixel loss can focus gradient on pixels that are already wrong. \SegPGD addresses this by weighting currently correct and incorrect pixels differently over attack iterations \parencite{gu2022segpgd}. Early iterations emphasize correct pixels so that the attack spreads errors. Later iterations balance the objective.
+
+This makes \SegPGD more appropriate than simply applying classification PGD to every pixel independently. The attack goal is not one wrong label; it is broad degradation of the segmentation mask. mIoU is sensitive to that broad degradation because it measures overlap between predicted and ground-truth regions. A robust segmentation result should therefore survive \SegPGD, not merely a representation-distance attack.
+
+\section{Depth Attack Details}
+
+\DepthPGD maximizes the depth loss used by the training or evaluation pipeline. The loss combines scale-invariant pixel error with gradient matching. Maximizing this loss can distort both absolute depth and local structure. Because RMSE is the reported metric, larger attacked RMSE indicates worse robustness.
+
+Depth attacks are especially useful for identifying non-classification failure modes. A perturbation may not need to change object identity to damage geometry. For example, it can create systematic depth shifts or boundary artifacts. The thesis does not display private or sensitive images; it reports aggregate RMSE values from the supplied resources.
+
+\section{Defense Protocol}
+
+The \DeACL defense starts from a pre-trained encoder and learns a robust encoder. The first term preserves the original representation, preventing the robust encoder from drifting too far from the clean teacher. The second term aligns robust representations of clean and adversarial inputs. The balance parameter $\gamma$ controls the strength of adversarial alignment.
+
+This objective is elegant because it matches the SSL setting: no labels are required. It is also efficient compared with pre-training a robust SSL model from scratch. But its elegance creates a precise hypothesis. Since the adversarial examples are representation-level examples, the strongest improvements should appear under representation-level evaluation. Downstream improvements require transfer from representation alignment to task losses.
+
+The experiments confirm the first part and challenge the second. \DeACL improves \EmbedAttack results in classification, segmentation, and depth. But \PGD, \SegPGD, and \DepthPGD remain damaging. This is why the thesis describes \DeACL as useful but not sufficient for task-agnostic foundation robustness.
+
+\section{Metrics and Interpretation}
+
+Accuracy is used for classification. A clean accuracy number measures utility, while attacked accuracy measures robustness. For segmentation, mIoU measures overlap between predicted and true regions. It is stricter than pixel accuracy in class-imbalanced settings because each class contributes through intersection-over-union. For depth, RMSE measures average squared depth error and is reported with a downward arrow because lower is better.
+
+The metrics should not be mixed into a single score. A one-number robustness average would hide which task fails. Instead, the thesis uses task-specific tables. This makes trade-offs visible. For example, \DeACL can improve \EmbedAttack mIoU while reducing clean mIoU and leaving \SegPGD mIoU near zero. Such a pattern would be lost in an aggregate.
+
+\section{Validity Considerations}
+
+The design deliberately favors clarity over exhaustiveness. It does not include every SSL method, every downstream architecture, or every adversarial threat model. It also does not claim that \DeACL is the only possible robustification method. The conclusion is narrower and stronger: representation-level robustness should not be assumed to transfer to downstream tasks without direct evaluation.
+
+The selected attack budget also constrains interpretation. A smaller budget might produce less severe failures, and a larger budget might collapse more models. Other norms, such as $\ell_2$ or spatial transformations, could reveal different patterns. Physical attacks and corruptions are separate robustness categories. The reported results should therefore be read as evidence for the evaluated white-box $\ell_\infty$ setting.
+
+Finally, the evaluation uses available resource results rather than rerunning every experiment from scratch in this repository. This is appropriate for a thesis-writing task using supplied manuscripts, figures, and tables. The text therefore focuses on careful synthesis, explanation, and interpretation of the provided material.

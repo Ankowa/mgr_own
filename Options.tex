@@ -1,0 +1,37 @@
+% This file contains "basic" options.
+% For more advanced ones, you might have
+% to edit Thesis.cls
+
+% Base Font Size
+%   All other font sizes (for headings etc.) are adjusted accordingly
+
+\KOMAoptions{fontsize=12pt}
+
+% Depth of table of contents
+%   0 displays only parts and chapters, 1 displays parts, chapters and sections, etc.
+
+\setcounter{tocdepth}{1}
+
+% Use the specific citation style
+%   The value after "style=" specifies the style
+%   common values include "numeric", "alphabetic", "authoryear"
+%   for a reference see http://mirrors.ctan.org/macros/latex/contrib/biblatex/doc/biblatex.pdf#subsection.3.3
+\usepackage[style=numeric,sorting=none]{biblatex}
+\usepackage{caption}
+
+% Thesis-specific table and math helpers. Keep this list small so that it
+% remains compatible with the SaarTex class and pdfLaTeX.
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{bm}
+\usepackage{xspace}
+
+% Put figures in the Figures/ directory and include them by file name, e.g.
+% \includegraphics[width=\linewidth]{my-figure}
+\graphicspath{{Figures/}}
+
+% Print the whole bibliography?
+%   By default, LaTeX prints just those bibliography items that have been cited.
+%   If you want to print the whole bibliography, uncomment the following line
+%   
+%   \nocite{*} 
