@@ -1,1 +1,10 @@
 /mgr
+*.aux
+*.bcf
+*.log
+*.xml
+*.gz
+*.thm
+*.toc
+*.def
+*.pdf
