@@ -20,40 +20,55 @@ More precise view of the above goal is: representations $z_1$, $z_2$ of two \tex
 \subsection{Similar Images and SSL}
 \label{sec:similar_imgs_ssl}
 
-Defining "similarity" of images is tricky, especially since images can be similar in many ways. The similarity may be structural, compositional, semantic, stylistic, etc. To avoid ambiguities and human-based biases, the default approach is to augment \textit{the same} image multiple times, producing multiple "views". These views are (likely) similar to each other, and the similarity is as broad as imaginable. 
+Defining "similarity" of images is tricky, especially since images can be similar in many ways. The similarity may be structural, compositional, semantic, stylistic, etc. To avoid ambiguities and human-based biases, the default approach is to augment \textit{the same} image multiple times, producing multiple "views". These views are (likely) similar to each other, and the similarity is as broad as imaginable.\todo{idk what I meant here} 
 
-Representations' "closeness" is easier to precisely formulate. Since embeddings are continuous vectors, the natural approach is to use an abstract \textit{distance} function $\text{dist}: \mathbb{R}^d\times\mathbb{R}^d\rightarrow\mathbb{R}$, for example L2 distance or cosine similarity. 
+Representations' "closeness" is easier to precisely formulate. Since embeddings are continuous vectors, the natural approach is to use an abstract \textit{similarity} function $\text{sim}: \mathbb{R}^d\times\mathbb{R}^d\rightarrow\mathbb{R}$, for example inverse L2 distance or cosine similarity. 
 
 Effectively, given a dataset of $N$ unlabeled images $D=\{x_i\},i=1,...,N$ the SSL training objective utilizing multiple views of the same image is as follows:
 
 \begin{equation}
-    \label{eq:loss_ssl_sim}
-    \theta^*=\underset{\theta}{\argmin}
-        \mathbb{E}_{x\sim D,\mathcal{A}_i\sim{\mathbb{A}},\mathcal{A}_j\sim\mathbb{A}}
-        \left[
-        \text{dist}(\mathcal{A}_i(x),\mathcal{A}_j(x))
+    \theta^*=\underset{\theta}{\argmax}
+    \mathbb{E}_{x\sim D,\mathcal{A}_i\sim{\mathbb{A}},\mathcal{A}_j\sim\mathbb{A}}
+    \left[
+        \text{sim}(\mathcal{A}_i(x),\mathcal{A}_j(x))
         \right]\text{,}
+    \label{eq:loss_ssl_sim}
 \end{equation}
 where $\mathbb{A}=\{\mathcal{A}_1,\mathcal{A}_2,...\}$ is a set of augmentations $\mathcal{A}_i: \mathbb{R}^{C\times H\times W} \rightarrow \mathbb{R}^{C\times H\times W}$.
 
-\subsection{The Great Collapse}
+\subsection{The Great Collapse}\label{sec:ssl_collapse}
 
-Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a network $f_\theta^*: \mathbb{R}^{C\times H\times W}->[0]^d$. To address that HERE SIMSIAM AND DINO ONCE I HAVE INTERNET TO WRITE IT AS GOOD AS IT GETS.
+Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a network $f_{\theta^*}: \mathbb{R}^{C\times H\times W}\rightarrow[0]^d$. 
+
+\paragraph{SimSiam}~\cite{simsiam} addresses this problem by \textit{stop-gradient operation}, and Siamese networks~\cite{siamese},~\ie, two neural networks that share weights. During SimSiam training two views $x_1, x_2$ are passed through two encoders $f$ sharing the same weights, obtaining two representations $z_1, z_2$. Then, one of the representations (without loss of generality: $z_1$) is passed through an additional MLP prediction head $h$ to get $p_1=h(z_1)$. The training objective is to maximize $\text{sim}(p_1, z_2)$, with sim being cosine similarity. To avoid collapse, the gradients flowing \textbf{only} through the network (and $h$) that encoded $x_1$, while the update gradients based on $z_2$ are discarded, or in other words: stopped from flowing, hence the name \textit{stop-gradient}. This ensures that the network $f$ cannot "cheat" during training, to collapse to a trivial (and uninformative) solution of $[0]^d$ prediction regardless of the input image. Visual description of the SimSiam framework is shown in~\cref{fig:simsiam}.
+
+\begin{figure}
+    \includegraphics{simsiam.pdf}
+    \caption{Visual depiction of the SimSiam framework, taken directly from~\cite{simsiam}.}
+    \label{fig:simsiam}
+\end{figure}
+
+\paragraph{DINO}~\cite{dinov1} presents another approach to solve the collapse problem. While still using the stop-gradient trick and dual-network stack, the encoders \textit{do not} share weights during training, at least not explicitly. Instead, they work in a student-teacher tandem, where the student encoder $f_S$ aims to match the representations of the teacher encoder $f_T$. Importantly, the views $x_S$ passed to the student are less informative than the views $x_T$ passed to teacher. The former are called \textit{local} views, and are of smaller resolution~\i.e., obtained by more aggressive cropping, while the latter are \textit{global} views, that cover over 50\% of the original image $x$. 
+
+Unlike SimSiam, DINO's training loss is more involved. First, each dimension of the output representation is normalized using a softmax function $P(z_i)=\operatorname{softmax}(z_i)=\frac{\exp(z_i/\tau)}{\sum_{k=1}^{d}(z_k/\tau)}$, with $\tau>0$ being the temperature parameter, and $z_i$ denoting i-th element of the representation vector $z$, effectively turning it into probability distribution. Then, the training loss is $-P(f_T(x_T))\log(P(f_S(x_S)))$, known as cross-entropy loss.
+
+Stop-gradient operation is applied to the teacher network,~\ie, the gradient update from the loss flows only through the student model. Note that the teacher model has to be updated too, for the student to be able to learn anything useful from it. The authors solve it using exponential moving average, with parameters of the teacher $\theta_T$ being updated using $\theta_T\leftarrow\lambda\theta_T+(1-\lambda)\theta_S$, with $\theta\in[0.996,1)$. However, authors found it necessary to additionally \textit{center} the representations returned from the teacher, to encourage more uniform distribution of embeddings. To this end, they add a bias term $c$ to the output $f_T(x)\leftarrow f_T(x)+c$, with $c$ being again updated using exponential moving average after each batch: $c\leftarrow mc+(1-m)c\frac{1}{B}\sum_{i=1}^{B}f_T(x_i)$, where $B$ denotes the batch size, $x_i$---i-th element in the batch, and $m>0$ is the update rate parameter.
+% HERE SIMSIAM AND DINO ONCE I HAVE INTERNET TO WRITE IT AS GOOD AS IT GETS.
 
 \subsection{Dissimilar Images and Contrastive Learning}
 
-While \textit{similar} images' embeddings should stay close, it is also important that \textit{dissimilar} images' embeddings stay far from each other. Analogously to~\cref{sec:similar_imgs_ssl}, it is not clear what does exactly mean that two images are dissimilar. 
+While \textit{similar} images' embeddings should stay close, prior work~\cite{radford2021learning,chen2020simple} found it important that \textit{dissimilar} images' embeddings stay far from each other. Analogously to~\cref{sec:similar_imgs_ssl}, it is not clear what does exactly mean that two images are dissimilar. 
 
-The trivial solution is to assume that two different images are dissimilar from the definition. Contrastive Learning assumes exactly that, with the InfoNCE training loss defined as:
+The trivial solution is to assume that two different images are dissimilar (from the fact that they are \textit{different}), which is exactly what Contrastive Learning does. InfoNCE training loss defined as:
 
 \begin{equation}
     \label{eq:infonce}
-    \text{InfoNCE}=
+    \text{InfoNCE}=-\log\frac{\exp(-\text{dist}(z_i,z_j)/\tau)}{}
 \end{equation}
 
-Intuitively, this training objective forces the NN to "push away" the representations of all alterantive images from the original positive image. Such a paradigm has been widely adopted HERE MORE ABOUT SIMCLR, AND MAYBE ABOUT CLIP.
+% Intuitively, this training objective forces the NN to "push away" the representations of all alterantive images from the original positive image. Such a paradigm has been widely adopted HERE MORE ABOUT SIMCLR, AND MAYBE ABOUT CLIP.
 
-ALSO ABOUT THE TRAINING DATA, IMAGENET, HOW MANY EPOCHS, THAT A LOT OF STUFF IS STANDARDIZED ETC.
+% ALSO ABOUT THE TRAINING DATA, IMAGENET, HOW MANY EPOCHS, THAT A LOT OF STUFF IS STANDARDIZED ETC.
 
 \subsection{Evaluating SSL Image Encoders}
 
