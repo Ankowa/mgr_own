@@ -1,5 +1,4 @@
-\chapter{Introduction}
-\label{chap:introduction}
+\chapter{Introduction}\label{chap:introduction}
 
 In this section I introduce the main object of my study: image encoders trained under self-supervised learning (SSL) TODO CITE paradigm. After providing an overview of what SSL is and why it was invented, I pivot to the second topic: adversarial images TODO CITE. Finally, I pair both topics, highligh the research gap my work addresses, and summarize the contributions of this thesis.
 
@@ -23,7 +22,7 @@ While embeddings are useful, now it's the time to discuss how they are obtained.
 
 Training frameworks of SSL encoders vary. SimCLR HERE HOW IT TRAINS. SimSiam operates on siamese networks TODO CITE and stop-gradient operations to prevent collapse. DINO employs a self-distillation framework, where the teacher model is passed a "strong" view of the image, while the student sees a "weak", more noisy view of the same image. DINO is also the first framework to successfully use Vision Transformers (ViTs) TODO CITE for SSL. Thanks to ViT's attention mechanism TODO CITE it enables per-pixel predictions,~\eg segmentation.
 
-/section{Adversarial Images}
+\section{Adversarial Images}
 
 Since SSL encoders are so powerful, they find many applications,~\eg in self-driving cars, or medical image processing CITE. These posits them as a crucial part in critical systems, and their failure can thus have severe negative consequences. 
 

@@ -1,5 +1,4 @@
-\chapter{Background}
-\label{chap:background}
+\chapter{Background}\label{chap:background}
 
 % 5 pages imo
 
@@ -17,14 +16,13 @@ Notably, what exactly is a "rich and expressive representation $z$ of any image 
 
 More precise view of the above goal is: representations $z_1$, $z_2$ of two \textit{similar} images $x_1$, $x_2$ should be \textit{closer} than representations $z_1$, $z_3$ of two \textit{dissimilar} images $x_1$, $x_3$. Intuitively, an image of a dog should have a representation that lies close to other images of dogs in the embedding space, and should have a representation that lies far from images depicting circuit boards. 
 
-\subsection{Similar Images and SSL}
-\label{sec:similar_imgs_ssl}
+\subsection{Similar Images and SSL}\label{sec:similar_imgs_ssl}
 
 Defining "similarity" of images is tricky, especially since images can be similar in many ways. The similarity may be structural, compositional, semantic, stylistic, etc. To avoid ambiguities and human-based biases, the default approach is to augment \textit{the same} image multiple times, producing multiple "views". These views are (likely) similar to each other, and the similarity is as broad as imaginable.\todo{idk what I meant here} 
 
 Representations' "closeness" is easier to precisely formulate. Since embeddings are continuous vectors, the natural approach is to use an abstract \textit{similarity} function $\text{sim}: \mathbb{R}^d\times\mathbb{R}^d\rightarrow\mathbb{R}$, for example inverse L2 distance or cosine similarity. 
 
-Effectively, given a dataset of $N$ unlabeled images $D=\{x_i\},i=1,...,N$ the SSL training objective utilizing multiple views of the same image is as follows:
+Effectively, given a dataset of $N$ unlabeled images $D=\{x_i|i=1,...,N\}$ the SSL training objective utilizing multiple views of the same image is as follows:
 
 \begin{equation}
     \theta^*=\underset{\theta}{\argmax}
@@ -38,9 +36,9 @@ where $\mathbb{A}=\{\mathcal{A}_1,\mathcal{A}_2,...\}$ is a set of augmentations
 
 \subsection{The Great Collapse}\label{sec:ssl_collapse}
 
-Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a network $f_{\theta^*}: \mathbb{R}^{C\times H\times W}\rightarrow[0]^d$. 
+Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a network $f_{\theta^*}: \mathbb{R}^{C\times H\times W}\rightarrow[0]^d$,~\ie always predicting a $d$-dimensional vector of zeros. 
 
-\paragraph{SimSiam}~\cite{simsiam} addresses this problem by \textit{stop-gradient operation}, and Siamese networks~\cite{siamese},~\ie, two neural networks that share weights. During SimSiam training two views $x_1, x_2$ are passed through two encoders $f$ sharing the same weights, obtaining two representations $z_1, z_2$. Then, one of the representations (without loss of generality: $z_1$) is passed through an additional MLP prediction head $h$ to get $p_1=h(z_1)$. The training objective is to maximize $\text{sim}(p_1, z_2)$, with sim being cosine similarity. To avoid collapse, the gradients flowing \textbf{only} through the network (and $h$) that encoded $x_1$, while the update gradients based on $z_2$ are discarded, or in other words: stopped from flowing, hence the name \textit{stop-gradient}. This ensures that the network $f$ cannot "cheat" during training, to collapse to a trivial (and uninformative) solution of $[0]^d$ prediction regardless of the input image. Visual description of the SimSiam framework is shown in~\cref{fig:simsiam}.
+\paragraph{SimSiam}~\cite{simsiam} addresses this problem by \textit{stop-gradient operation}, and Siamese networks~\cite{siamese},~\ie two neural networks that share weights. During SimSiam training two views $x_1, x_2$ are passed through two encoders $f$ sharing the same weights, obtaining two representations $z_1, z_2$. Then, one of the representations (without loss of generality: $z_1$) is passed through an additional MLP prediction head $h$ to get $p_1=h(z_1)$. The training objective is to maximize $\text{sim}(p_1, z_2)$, with sim being cosine similarity. To avoid collapse, the gradients flowing \textbf{only} through the network (and $h$) that encoded $x_1$, while the update gradients based on $z_2$ are discarded, or in other words: stopped from flowing, hence the name \textit{stop-gradient}. This ensures that the network $f$ cannot "cheat" during training, to collapse to a trivial (and uninformative) solution of $[0]^d$ prediction regardless of the input image. Visual description of the SimSiam framework is shown in~\cref{fig:simsiam}.
 
 \begin{figure}
     \includegraphics{simsiam.pdf}
@@ -52,37 +50,47 @@ Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a netwo
 
 Unlike SimSiam, DINO's training loss is more involved. First, each dimension of the output representation is normalized using a softmax function $P(z_i)=\operatorname{softmax}(z_i)=\frac{\exp(z_i/\tau)}{\sum_{k=1}^{d}(z_k/\tau)}$, with $\tau>0$ being the temperature parameter, and $z_i$ denoting i-th element of the representation vector $z$, effectively turning it into probability distribution. Then, the training loss is $-P(f_T(x_T))\log(P(f_S(x_S)))$, known as cross-entropy loss.
 
-Stop-gradient operation is applied to the teacher network,~\ie, the gradient update from the loss flows only through the student model. Note that the teacher model has to be updated too, for the student to be able to learn anything useful from it. The authors solve it using exponential moving average, with parameters of the teacher $\theta_T$ being updated using $\theta_T\leftarrow\lambda\theta_T+(1-\lambda)\theta_S$, with $\theta\in[0.996,1)$. However, authors found it necessary to additionally \textit{center} the representations returned from the teacher, to encourage more uniform distribution of embeddings. To this end, they add a bias term $c$ to the output $f_T(x)\leftarrow f_T(x)+c$, with $c$ being again updated using exponential moving average after each batch: $c\leftarrow mc+(1-m)c\frac{1}{B}\sum_{i=1}^{B}f_T(x_i)$, where $B$ denotes the batch size, $x_i$---i-th element in the batch, and $m>0$ is the update rate parameter.
-% HERE SIMSIAM AND DINO ONCE I HAVE INTERNET TO WRITE IT AS GOOD AS IT GETS.
+Stop-gradient operation is applied to the teacher network,~\ie the gradient update from the loss flows only through the student model. Note that the teacher model has to be updated too, for the student to be able to learn anything useful from it. The authors solve it using exponential moving average, with parameters of the teacher $\theta_T$ being updated using $\theta_T\leftarrow\lambda\theta_T+(1-\lambda)\theta_S$, with $\theta\in[0.996,1)$. However, authors found it necessary to additionally \textit{center} the representations returned from the teacher, to encourage more uniform distribution of embeddings. To this end, they add a bias term $c$ to the output $f_T(x)\leftarrow f_T(x)+c$, with $c$ being again updated using exponential moving average after each batch: $c\leftarrow mc+(1-m)c\frac{1}{B}\sum_{i=1}^{B}f_T(x_i)$, where $B$ denotes the batch size, $x_i$---i-th element in the batch, and $m>0$ is the update rate parameter.
 
 \subsection{Dissimilar Images and Contrastive Learning}
 
-While \textit{similar} images' embeddings should stay close, prior work~\cite{radford2021learning,chen2020simple} found it important that \textit{dissimilar} images' embeddings stay far from each other. Analogously to~\cref{sec:similar_imgs_ssl}, it is not clear what does exactly mean that two images are dissimilar. 
+While \textit{similar} images' embeddings should stay close, prior work~\cite{clip,simclr} found it important that \textit{dissimilar} images' embeddings stay far from each other. Analogously to~\cref{sec:similar_imgs_ssl}, it is not clear what does exactly mean that two images are dissimilar. 
 
-The trivial solution is to assume that two different images are dissimilar (from the fact that they are \textit{different}), which is exactly what Contrastive Learning does. InfoNCE training loss defined as:
+The trivial solution is to assume that two different images are dissimilar (from the fact that they are \textit{different}), which is exactly what Contrastive Learning~\cite{contrastivelearningog} does. More precisely, instead of only matching two views of the same image, consider a batch of $B$ images, where each image has two distinct views, for a total of $2B$ views. Within $2B$ views, each view has exactly 1 positive view,~\ie stemming from the same image, and $2B-1$ negative views, crafted from other images. Then, an InfoNCE~\cite{infonceloss} training loss on a pair of positive views $x_i,x_j$ is defined as:
 
 \begin{equation}
     \label{eq:infonce}
-    \text{InfoNCE}=-\log\frac{\exp(-\text{dist}(z_i,z_j)/\tau)}{}
+    \text{InfoNCE}(x_i,x_j)=-\log\frac{\exp(\text{sim}(f(x_i),f(x_j))/\tau)}{\sum_{k=1}^{2B}\mathbbm{1}_{[k\neq i]}\exp(\text{sim}(f(x_i),f(x_k))/\tau)}
 \end{equation}
 
-% Intuitively, this training objective forces the NN to "push away" the representations of all alterantive images from the original positive image. Such a paradigm has been widely adopted HERE MORE ABOUT SIMCLR, AND MAYBE ABOUT CLIP.
+Intuitively, this training objective forces the NN to "push away" the representations of all views of the alternative images from the positive views. Such a paradigm has been proven successful, with SimCLR~\cite{simclr} and CLIP~\cite{clip} achieving high quality representation expressiveness.\todo{make it sound better.}
 
-% ALSO ABOUT THE TRAINING DATA, IMAGENET, HOW MANY EPOCHS, THAT A LOT OF STUFF IS STANDARDIZED ETC.
+\subsection{Training Data}
+
+Canonically~\cite{simclr,dinov1,simsiam}, pure-vision SSL encoders are trained for at most 100 epochs on an ImageNet-1k~\cite{imagenet} training set (1M high-resolution images), to fix confounding variables when comparing different frameworks. However, since the SSL paradigm aims to enable training on \textit{any unlabeled data}, CLIP~\cite{clip} scaled training to 400 million samples collected from the internet\footnote{CLIP uses image and text pairs for training, which is beyond the scope of this work.}, with DINOv2~\cite{dinov2} following up with 142 million curated images for training, to maximize representation expressiveness.
+
+\subsection{Encoder Architectures}
+
+Since the SSL encoders considered in this work process images, the standard image processing NN architectures serve as the backbones for these models. ResNet~\cite{resnet}, an architecture which achieved state-of-the-art image classification capabilities before the dawn of Transformers~\cite{transformers}, is a popular choice,\eg for SimSiam or SimCLR. The architecture is modified; instead of predicting a vector of per-class logit values, the final linear layer is removed, to expose features, which serve as representations. For more modern SSL encoders (CLIP, DINO, DINOv2), Vision Transformer~\cite{vit} (ViT) architecture is the default choice. ViT splits the image into a sequence of patches, and appends a \texttt{[CLS]} token to the sequence, which representation canonically serves as an input to a classification layer (akin to the final ResNet linear layer). In the SSL setting, the representation of the \texttt{[CLS]} token is used as the image representation $z$.
 
 \subsection{Evaluating SSL Image Encoders}
 
-The generality of the SSL training task (\cref{eq:loss_ssl_sim,eq:infonce}) comes at a cost. One can not simply look at the produced embeddings $z$ and assess their quality, since their dimension $d$ is often too high (above 100, sometimes even 1000) to allow for meaningful analysis, yet alone a universal quality metric.
+The generality of the SSL training task (\cref{eq:loss_ssl_sim,eq:infonce}) comes at a cost. One can not simply look at the produced embeddings $z$ and assess their quality, since their dimension $d$ is often too high (above 100, sometimes even 1000) to allow for meaningful analysis, yet alone a universal quality metric. Instead, researchers focus on measuring how useful the embeddings are to help solve well-defined tasks, like classification or semantic segmentation. 
 
-Instead, researchers focus on measuring how useful the embeddings are to help solve well-defined tasks, like classification or semantic segmentation. For classification, the dominant approach is to select a downstream dataset $D_T=\{(x_i,c_i)\}, i=1,...,N_T$ of $N_T$ labeled images, and based on the representations from trained $f_\theta$, fit a simple linear model $l_\mathbf{w}: \mathbb{R}^d \rightarrow \{1,...,K\}$ minimizing cross-entropy loss $\text{CELoss}=-\log(1-p_i)$, where $p_i$ is the probability of i-th class returned by $l_\mathbf{w}$. The final encoder+linear model classification stack is defined as
+\paragraph{Classification} is evaluated on a downstream dataset $D_T=\{(x_i,c_i)|i=1,...,N_T\}$ of $N_T$ labeled images. Based on the representations from trained $f_\theta$, a simple linear model $l_\mathbf{w}: \mathbb{R}^d \rightarrow \mathbb{R}^K$ is fit, parameterized by $\mathbf{w}\in \mathbb{R}^{K\times d}$, $l_\mathbf{w}(z)=\mathbf{w}z^T$. Notably, only $\mathbf{w}$ is updated, and $\theta$ is kept unchanged. Training minimizes cross-entropy loss $\text{CELoss}(\mathbf{w}, z_i, c_i)=-\log(1-(\mathbf{w}z_i^T)^{(c_i)})$, where $(\mathbf{w}z_i^T)^{(c_i)}$ is $c_i$-th element of the probability vector, denoting the probability of the correct class $c_i$. The final encoder+linear model classification stack is defined as
+$(l_\mathbf{w}\circ f_\theta): \mathbb{R}^{C\times H\times W} \rightarrow \mathbb{R}^K$, and its downstream task performance is evaluated as accuracy on the validation set of the training data $D_T$. The established approach is to perform a single training epoch on the training downstream dataset.
 
-\begin{equation}
-    (l_\mathbf{w}\circ f_\theta): \mathbb{R}^{C\times H\times W} \rightarrow \{1,...,K\}\text{,}
-\end{equation}
-and its downstream task performance is evaluated as accuracy on the validation set of the training data $D_T$. The established approach is to perform a single training epoch on the downstream data.
+\paragraph{Pixel-level} tasks, like semantic segmentation and depth estimation (evaluated in this work) require a more sophisticated approach. There, the dataset $D_T$ consists of images $x_i$ and ground-truth masks $m_i$. For semantic segmentation the goal is to predict a class of \textit{each pixel}, while for depth estimation---predict a continuous \textit{distance} of each pixel from the camera. Thus, masks for semantic segmentation are $m\in\{1,...,K\}^{H\times W}$, while for depth estimation they are $m\in\mathbb{R}_+^{H\times W}$. 
 
-TODO HERE ABOUT segmentation
+Pixel-level predictions require two-dimensional, spatially aligned representations of the image. Effectively, only ViT-based SSL encoders are applicable here, as they return a representation for each patch the input image is split into, contrary to a single 1D vector from ResNet. Specifically, each image $x$ is split into $G=HW/P^2$ patches $\{p_i|i=1,...,G\}$,~\ie non-overlapping square crops of size $P\times P$ of the image $x$, and turned into a sequence of patches, in a raster order (left to right, top to bottom). Encoder $f_\theta$ outputs a sequence of representations $\{z_i|i=1,...,G\}$, where $z_i$ is a representation of patch $p_i$, and can be re-arranged back into a 2D grid of vectors, of size $H/P\times W/P$.
 
+Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation $\operatorname{interpolation}(\cdot, a, b, c)\in\mathbb{R}^{a\times b\times c}$. 
+Loss function for segmentation is:
+
+\begin{equation*}
+    -\frac{1}{HW}\sum_{i=1}^{H}\sum_{j=1}^{W}\log(1-\operatorname{interpolation}(\hat{m}, K, H, W)^{(m_{i,j},i,j)})\text{.}
+\end{equation*}
+For depth estimation, the loss is $\frac{1}{HW}\|\operatorname{interpolation}(\hat{m}, H, W)-m\|^2_2$,~\ie mean squared error.
 
 \section{Adversarial Examples}
 
