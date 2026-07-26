@@ -1,0 +1,23 @@
+\begin{table}[t]
+    \centering
+    \small
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{llccc}
+    \toprule
+    Dataset & SSL Encoder & Clean mIoU $\uparrow$ & \EmbedAttack mIoU $\uparrow$ & \SegPGD mIoU $\uparrow$ \\
+    \midrule
+    ADE20K & \DINOv ViT-S/14 & 0.42 & 0.01 & 0.01 \\
+    ADE20K & \DINOv ViT-B/14 & 0.45 & 0.00 & 0.01 \\
+    ADE20K & \DINO ViT-B/16 & 0.27 & 0.01 & 0.01 \\
+    \midrule
+    Cityscapes & \DINOv ViT-S/14 & 0.65 & 0.02 & 0.01 \\
+    Cityscapes & \DINOv ViT-B/14 & 0.68 & 0.03 & 0.00 \\
+    Cityscapes & \DINO ViT-B/16 & 0.45 & 0.06 & 0.06 \\
+    \midrule
+    PASCAL VOC 2012 & \DINOv ViT-S/14  & 0.83 & 0.00 & 0.01 \\
+    PASCAL VOC 2012 & \DINOv ViT-B/14  & 0.83 & 0.00 & 0.01 \\
+    PASCAL VOC 2012 & \DINO ViT-B/16  & 0.56 & 0.06 & 0.00 \\
+    \bottomrule
+    \end{tabular}}
+    \label{tab:segmentation}
+\end{table}

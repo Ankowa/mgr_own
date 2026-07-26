@@ -1,0 +1,23 @@
+\begin{table}[t]
+    \centering
+    \small
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{llccc}
+    \toprule
+    Dataset & SSL Encoder & Clean accuracy $\uparrow$ & \EmbedAttack accuracy $\uparrow$ & \PGD accuracy $\uparrow$ \\
+    \midrule
+    CIFAR10 & \DINOv ViT-S/14 & 0.94 & 0.01 & 0.00 \\
+    CIFAR10 & \DINOv ViT-B/14 & 0.98 & 0.04 & 0.00 \\
+    CIFAR10 & \DINO ViT-B/16 & 0.94 & 0.01 & 0.00 \\
+    \midrule
+    CIFAR100 & \DINOv ViT-S/14 & 0.82 & 0.00 & 0.00 \\
+    CIFAR100 & \DINOv ViT-B/14 & 0.86 & 0.00 & 0.00 \\
+    CIFAR100 & \DINO ViT-B/16 & 0.76 & 0.00 & 0.00 \\
+    \midrule
+    STL10 & \DINOv ViT-S/14 & 0.98 & 0.06 & 0.00 \\
+    STL10 & \DINOv ViT-B/14 & 0.99 & 0.20 & 0.00 \\
+    STL10 & \DINO ViT-B/16 & 0.98 & 0.00 & 0.00 \\
+    \bottomrule
+    \end{tabular}}
+    \label{tab:classification}
+\end{table}
