@@ -58,7 +58,7 @@
 \renewcommand{\headfont}{\small}	
 \automark[section]{chapter}
 \renewcommand{\thechapter}{\Roman{chapter}} %Redefinition Chapter counter
-\renewcommand{\thesection}{\arabic{section}} %Redefinition Section counter
+\renewcommand{\thesection}{\thechapter.\arabic{section}}
 
 \RequirePackage{enumitem}
 \setlist{  

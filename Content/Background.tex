@@ -4,13 +4,13 @@
 
 In this chapter I introduce the literature background for the thesis. I begin with a comprehensive overview of existing and examined SSL training frameworks, focusing on the architectures, training, evaluation, and downstream tasks. Then, I provide a breakdown on adversarial examples, explaining the theory behind them, their universality, current attacks, and pair them with current SSL paradigm.
 
-\section{SSL Vision Encoders}
+\section{SSL Vision Encoders}\label{sec:ssl_bg}
 
 Contrary to classification task, where the goal is to predict a correct class $c\in\{1, 2,...,K\}$ from possible $K$ classees, based on the image $x\in\mathbb{R}^{C\times H\times W}$, the goal of SSL encoders is more general. Classifiers learn based on labeled data $(x, c)$, under supervised learning paradigm,~\ie the correct prediction is well known, and the sole training objective is to teach the NN to output a specific (correct) class $c$ for each image $x$.
 
 SSL abandons the luxury of labeled data. Intuitively, most of the data one can obtain via Internet-scale scraping is unlabeled, and the labeling requires costly human labor. Without labels, SSL posits an alternative training objective,~\ie representation learning. Representations $z\in\mathbb{R}^d$ are understood as high-dimensional ($d$ denotes number of dimensions), continuous vectors. After training, the SSL model $f_\theta: \mathbb{R}^{C\times H\times W}\rightarrow\mathbb{R}^d$ (with parameters $\theta$) should output rich and expressive representation $z$ of any image $x$, enabling further downstream use of the representations.
 
-\subsection{Training Paradigms}
+\subsection{Training Paradigms}\label{sec:ssl_training}
 
 Notably, what exactly is a ``rich and expressive representation $z$ of any image $x$, enabling further downstream use of the representations'' is not well-grounded in theory. Moreover, one cannot compute gradient of such an objective. 
 
@@ -48,7 +48,17 @@ Unfortunately,~\cref{eq:loss_ssl_sim} has a fatal flaw: its minimizer is a netwo
 
 \paragraph{DINO}~\cite{dinov1} presents another approach to solve the collapse problem. While still using the stop-gradient trick and dual-network stack, the encoders \textit{do not} share weights during training, at least not explicitly. Instead, they work in a student-teacher tandem, where the student encoder $f_S$ aims to match the representations of the teacher encoder $f_T$. Importantly, the views $x_S$ passed to the student are less informative than the views $x_T$ passed to teacher. The former are called \textit{local} views, and are of smaller resolution~\i.e., obtained by more aggressive cropping, while the latter are \textit{global} views, that cover over 50\% of the original image $x$. 
 
-Unlike SimSiam, DINO's training loss is more involved. First, each dimension of the output representation is normalized using a softmax function $P(z_i)=\operatorname{softmax}(z_i)=\frac{\exp(z_i/\tau)}{\sum_{k=1}^{d}(z_k/\tau)}$, with $\tau>0$ being the temperature parameter, and $z_i$ denoting i-th element of the representation vector $z$, effectively turning it into probability distribution. Then, the training loss is $-P(f_T(x_T))\log(P(f_S(x_S)))$, known as cross-entropy loss.
+Unlike SimSiam, DINO's training loss is more involved. First, each dimension of the output representation is normalized using a softmax function:
+\begin{equation}
+    \operatorname{softmax}(z_i)=\frac{\exp(z_i/\tau)}{\sum_{k=1}^{d}(z_k/\tau)}\text{,} 
+    \label{eq:softmax}
+\end{equation}
+with $\tau>0$ being the temperature parameter, and $z_i$ denoting i-th element of the representation vector $z$, effectively turning it into probability distribution. Then, the training loss is based on cross-entropy loss:
+\begin{equation}
+    \text{CELoss}(y,\hat{y})=-y\log(y)\text{,} 
+    \label{eq:celoss}   
+\end{equation}
+specifically, $\text{CELoss}\left(\operatorname{softmax}\left(f_T\left(x_T\right)\right),\operatorname{softmax}\left(f_S\left(x_S\right)\right)\right)$.
 
 Stop-gradient operation is applied to the teacher network,~\ie the gradient update from the loss flows only through the student model. Note that the teacher model has to be updated too, for the student to be able to learn anything useful from it. The authors solve it using exponential moving average, with parameters of the teacher $\theta_T$ being updated using $\theta_T\leftarrow\lambda\theta_T+(1-\lambda)\theta_S$, with $\theta\in[0.996,1)$. However, authors found it necessary to additionally \textit{center} the representations returned from the teacher, to encourage more uniform distribution of embeddings. To this end, they add a bias term $c$ to the output $f_T(x)\leftarrow f_T(x)+c$, with $c$ being again updated using exponential moving average after each batch: $c\leftarrow mc+(1-m)c\frac{1}{B}\sum_{i=1}^{B}f_T(x_i)$, where $B$ denotes the batch size, $x_i$---i-th element in the batch, and $m>0$ is the update rate parameter.
 
@@ -73,29 +83,49 @@ Canonically~\cite{simclr,dinov1,simsiam}, pure-vision SSL encoders are trained f
 
 Since the SSL encoders considered in this work process images, the standard image processing NN architectures serve as the backbones for these models. ResNet~\cite{resnet}, an architecture which achieved state-of-the-art image classification capabilities before the dawn of Transformers~\cite{transformers}, is a popular choice,\eg for SimSiam or SimCLR. The architecture is modified; instead of predicting a vector of per-class logit values, the final linear layer is removed, to expose features, which serve as representations. For more modern SSL encoders (CLIP, DINO, DINOv2), Vision Transformer~\cite{vit} (ViT) architecture is the default choice. ViT splits the image into a sequence of patches, and appends a \texttt{[CLS]} token to the sequence, which representation canonically serves as an input to a classification layer (akin to the final ResNet linear layer). In the SSL setting, the representation of the \texttt{[CLS]} token is used as the image representation $z$.
 
-\subsection{Evaluating SSL Image Encoders}
-
+\subsection{Evaluating SSL Image Encoders}\label{sec:eval_ssl}
 The generality of the SSL training task (\cref{eq:loss_ssl_sim,eq:infonce}) comes at a cost. One can not simply look at the produced embeddings $z$ and assess their quality, since their dimension $d$ is often too high (above 100, sometimes even 1000) to allow for meaningful analysis, yet alone a universal quality metric. Instead, researchers focus on measuring how useful the embeddings are to help solve well-defined tasks, like classification or semantic segmentation. 
 
-\paragraph{Classification} is evaluated on a downstream dataset $D_T=\{(x_i,c_i)|i=1,...,N_T\}$ of $N_T$ labeled images. Based on the representations from trained $f_\theta$, a simple linear model $l_\mathbf{w}: \mathbb{R}^d \rightarrow \mathbb{R}^K$ is fit, parameterized by $\mathbf{w}\in \mathbb{R}^{K\times d}$, $l_\mathbf{w}(z)=\mathbf{w}z^T$. Notably, only $\mathbf{w}$ is updated, and $\theta$ is kept unchanged. Training minimizes cross-entropy loss $\text{CELoss}(\mathbf{w}, z_i, c_i)=-\log(1-(\mathbf{w}z_i^T)^{(c_i)})$, where $(\mathbf{w}z_i^T)^{(c_i)}$ is $c_i$-th element of the probability vector, denoting the probability of the correct class $c_i$. The final encoder+linear model classification stack is defined as
-$(l_\mathbf{w}\circ f_\theta): \mathbb{R}^{C\times H\times W} \rightarrow \mathbb{R}^K$, and its downstream task performance is evaluated as accuracy on the validation set of the training data $D_T$. The established approach is to perform a single training epoch on the training downstream dataset.
+\paragraph{Classification} is evaluated on a downstream dataset $D_T=\{(x_i,c_i)|i=1,...,N_T\}$ of $N_T$ labeled images. Based on the representations from trained $f_\theta$, a simple linear model $l_\mathbf{w}: \mathbb{R}^d \rightarrow \mathbb{R}^K$ is fit, parameterized by $\mathbf{w}\in \mathbb{R}^{d\times K}$, $l_\mathbf{w}(z)=\mathbf{w}^Tz$. Notably, only $\mathbf{w}$ is updated, and $\theta$ is kept unchanged. Training minimizes cross-entropy loss~\cref{eq:celoss}.
+% $\text{CELoss}(\mathbf{w}, z_i, c_i)=-\log(1-(\mathbf{w}^Tz_i)^{(c_i)})$, where $(\mathbf{w}^Tz_i)^{(c_i)}$ is $c_i$-th element of the probability vector, denoting the probability of the correct class $c_i$. 
+The final encoder+linear model classification stack is defined as $(l_\mathbf{w}\circ f_\theta): \mathbb{R}^{C\times H\times W} \rightarrow \mathbb{R}^K$, and its downstream task performance is evaluated as accuracy on the validation set of the training data $D_T$. The established approach is to perform a single training epoch on the training downstream dataset.
 
-\paragraph{Pixel-level} tasks, like semantic segmentation and depth estimation (evaluated in this work) require a more sophisticated approach. There, the dataset $D_T$ consists of images $x_i$ and ground-truth masks $m_i$. For semantic segmentation the goal is to predict a class of \textit{each pixel}, while for depth estimation---predict a continuous \textit{distance} of each pixel from the camera. Thus, masks for semantic segmentation are $m\in\{1,...,K\}^{H\times W}$, while for depth estimation they are $m\in\mathbb{R}_+^{H\times W}$. 
+\paragraph{Pixel-level} tasks, like semantic segmentation and depth estimation (evaluated in this work) require a more sophisticated approach. There, the dataset $D_T$ consists of images $x_i$ and ground-truth masks $m_i$. For semantic segmentation the goal is to predict a class of \textit{each pixel}, while for depth estimation---predict a continuous \textit{distance} of each pixel from the camera. Thus, masks for semantic segmentation are $m\in\{1,...,K\}^{H\times W}$, while for depth estimation they are $m\in\mathbb{R}_+^{H\times W}$. Training loss for segmentation is cross-entropy loss~\cref{eq:celoss} averaged over all pixels of the mask $\hat{m}$ predicted from image $x$, and its respective ground truth mask $m$:
+\begin{equation}
+    \text{SegCE}(m,\hat{m})=\frac{1}{HW}\sum_{i=1}^{H}\sum_{j=1}^{W}\text{CELoss}(m^{(i,j)},\hat{m}^{(i,j)})\text{.}
+    \label{eq:seg_celoss}
+\end{equation}
+
+Depth estimation requires a bit more work, with the training loss being a weighted sum of two losses: \textit{multi-scale gradient matching} loss~\cite{depscaleloss} and \textit{pixel-wise depth loss}~\cite{deppixloss}. The former is computed over multiple scales $s\in\{(H/2^k,W/2^k)|k=0,1,2,3\}$, where the image at scale $s_k$ is downscaled to match the target size $(H/2^k,W/2^k)$, denoted $x_k$. The loss is:
+\begin{equation}
+    \text{DepScale}(m,\hat{m})=\frac{1}{HW}\sum_{k=0}^{3}
+    \sum_{i=1}^{H/2^k}\sum_{j=1}^{W/2^k}\left(
+        |\Delta_k^{(i,j+1)}-\Delta_k^{(i,j)}|+
+        |\Delta_k^{(i+1,j)}-\Delta_k^{(i,j)}|
+    \right)\text{,}
+    \label{eq:depth_loss_scale}
+\end{equation}
+where $\Delta_k^{(i,j)}=\log\hat{m}_k^{(i,j)}-\log m_k^{(i,j)}$. This loss encourages more smooth predictions. Second term is 
+\begin{equation}
+    \text{DepPix}(m,\hat{m})=\alpha\sqrt{
+        \frac{1}{HW}\sum_{i=1}^{H}\sum_{j=1}^{W}\left(\Delta^{(i,j)}\right)^2-
+        \frac{\lambda}{H^2W^2}\left(\sum_{i=1}^{H}\sum_{j=1}^{W}\Delta^{(i,j)}\right)^2
+    }\text{,}
+\end{equation}
+where $\alpha=1$, and $\lambda=0.85$, and explicitly penalizes the difference between ground truth and predicted depths. The final training loss is 
+\begin{equation}
+    \text{DepLoss}(m,\hat{m})=0.5\text{DepScale}(m,\hat{m})+\text{DepPix}(m,\hat{m})\text{.}
+    \label{eq:deploss}
+\end{equation}
 
 Pixel-level predictions require two-dimensional, spatially aligned representations of the image. Effectively, only ViT-based SSL encoders are applicable here, as they return a representation for each patch the input image is split into, contrary to a single 1D vector from ResNet. Specifically, each image $x$ is split into $G=HW/P^2$ patches $\{p_i|i=1,...,G\}$,~\ie non-overlapping square crops of size $P\times P$ of the image $x$, and turned into a sequence of patches, in a raster order (left to right, top to bottom). Encoder $f_\theta$ outputs a sequence of representations $\{z_i|i=1,...,G\}$, where $z_i$ is a representation of patch $p_i$, and can be re-arranged back into a 2D grid of vectors, of size $H/P\times W/P$.
 
-Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation: $\operatorname{LinInterp}(\cdot, a, b, c)\in\mathbb{R}^{a\times b\times c}$. 
-Loss function for segmentation is:
+Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}_p\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}_p\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation.
 
-\begin{equation*}
-    -\frac{1}{HW}\sum_{i=1}^{H}\sum_{j=1}^{W}\log(1-\operatorname{LinInterp}(\hat{m}, K, H, W)^{(m_{i,j},i,j)})\text{.}
-\end{equation*}
-For depth estimation, the loss is $\frac{1}{HW}\|\operatorname{LinInterp}(\hat{m}, H, W)-m\|^2_2$,~\ie mean squared error.
-
-\section{Adversarial Examples}
-\todo{organize this section better.}
+\section{Adversarial Examples}\label{sec:advex_bg}
 
 While most of the field focused on making the models better and more general,~\cite{advex} indentified a grave vulnerability of almost every neural network that exists. With some assumptions (introduced later) and little effort, any NN can be forced to output a wrong prediction with high consistency. What is even worse, such an adversarial input to the NN can be made indistinguishable from a real, benign input, and can evade detection. Changing a few pixel values by extremely small values (for example by at most 8/255 of the full pixel range) is enough to reliably fool a vast majority of image-based NNs, regardless of their training data, training objective, architecture, hyperparameters, preprocessing, and so on.
+\todo{organize this section better.}
 
 \todo{fit the table to width and format and stuff}
 \begin{figure}[t]
@@ -135,12 +165,12 @@ While single-step FGSM already achieves impressive results, one can do better by
 \label{alg:pgd}
 \begin{algorithmic}
     \Require $\epsilon$ (maximum perturbation strength), $\eta$ (step size), $T$ (total iterations)
-    \Require Obj (optimization objective,~\eg CELoss), clip, $(x,y)$, $f$
-    \Ensure $\delta$, s.t. $\|\delta\|_\infty\leq\epsilon$, and $f(x+\delta)\neq y$ (if attack succeeds)
+    \Require Obj (optimization objective,~\eg CELoss), clip, $(x,y)$, $f_V$
+    \Ensure $\delta$, s.t. $\|\delta\|_\infty\leq\epsilon$, and $f_V(x+\delta)\neq y$ (if attack succeeds)
     \State $\delta\sim\text{Bernoulli}(0.5)^d$ \Comment{$d$ is the dimensionality of $x$}
-    \State $\delta\gets\epsilon(2\delta-1)$ \Comment{$\delta_i\in\{-\epsilon,\epsilon\}$}
+    \State $\delta\gets\epsilon(2\delta-1)$ \Comment{$\delta\in\{-\epsilon,\epsilon\}^d$}
     \For{step $t=1,...,T$}
-        \State $\delta\gets\eta\sign\left(\nabla_\delta\text{Obj}\left(f\left(x+\delta\right),y\right)\right)$ \Comment{See~\cref{eq:fgsm}}
+        \State $\delta\gets\eta\sign\left(\nabla_\delta\text{Obj}\left(f_V\left(x+\delta\right),y\right)\right)$ \Comment{See~\cref{eq:fgsm}}
         \State $\delta\gets\text{clip}(\delta,-\epsilon,\epsilon)$ \Comment{Ensures $\|\delta\|_\infty\leq\epsilon$}
     \EndFor
 \end{algorithmic}
@@ -149,8 +179,8 @@ While single-step FGSM already achieves impressive results, one can do better by
 While PGD and FGSM perform very well against simple classification tasks, more complex problems like semantic segmentation require a more involved approach. SegPGD~\cite{segpgd} identifies that a na\"{\i}ve application of PGD attack to the segmentation loss (averaged CELoss on each pixel) does not necessarily maximize the \textit{absolute number} of mis-predicted pixels within the image $x$. Instead, they split the predicted pixels $\hat{m}$ into two groups: correctly classified ($\hat{m}_+$), and incorrectly classified ($\hat{m}_-$). The goal of SegPGD is to maximize the size of the latter set. The optimization objective of SegPGD is a weighted sum of losses on both sets:
 \begin{equation}
     \begin{aligned}
-        \text{SegPGD}(f,x,m,\delta,t)=\frac{1-\lambda(t)}{HW}\sum_{(i,j)\in \hat{m}_+}CELoss(f(x+\delta)^{(i,j)},m^{(i,j)})+\\
-        \frac{\lambda(t)}{HW}\sum_{(k,l)\in \hat{m}_-}CELoss(f(x+\delta)^{(k,l)},m^{(k,l)})\text{,}
+        \text{SegPGD}(f_V,x,m,\delta,t)=\frac{1-\lambda(t)}{HW}\sum_{(i,j)\in \hat{m}_+}CELoss(f_V(x+\delta)^{(i,j)},m^{(i,j)})+\\
+        \frac{\lambda(t)}{HW}\sum_{(k,l)\in \hat{m}_-}CELoss(f_V(x+\delta)^{(k,l)},m^{(k,l)})\text{,}
     \end{aligned}
     \label{eq:segpgd}
 \end{equation}
