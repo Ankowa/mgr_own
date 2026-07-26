@@ -121,7 +121,7 @@ where $\alpha=1$, and $\lambda=0.85$, and explicitly penalizes the difference be
 
 Pixel-level predictions require two-dimensional, spatially aligned representations of the image. Effectively, only ViT-based SSL encoders are applicable here, as they return a representation for each patch the input image is split into, contrary to a single 1D vector from ResNet. Specifically, each image $x$ is split into $G=HW/P^2$ patches $\{p_i|i=1,...,G\}$,~\ie non-overlapping square crops of size $P\times P$ of the image $x$, and turned into a sequence of patches, in a raster order (left to right, top to bottom). Encoder $f_\theta$ outputs a sequence of representations $\{z_i|i=1,...,G\}$, where $z_i$ is a representation of patch $p_i$, and can be re-arranged back into a 2D grid of vectors, of size $H/P\times W/P$.
 
-Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}_p\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}_p\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation.
+Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}_p\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}_p\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation.\todo{do we first run $l_\mathbf{w}$ or interpolate?}
 
 \section{Adversarial Examples}\label{sec:advex_bg}
 
