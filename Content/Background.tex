@@ -84,13 +84,13 @@ $(l_\mathbf{w}\circ f_\theta): \mathbb{R}^{C\times H\times W} \rightarrow \mathb
 
 Pixel-level predictions require two-dimensional, spatially aligned representations of the image. Effectively, only ViT-based SSL encoders are applicable here, as they return a representation for each patch the input image is split into, contrary to a single 1D vector from ResNet. Specifically, each image $x$ is split into $G=HW/P^2$ patches $\{p_i|i=1,...,G\}$,~\ie non-overlapping square crops of size $P\times P$ of the image $x$, and turned into a sequence of patches, in a raster order (left to right, top to bottom). Encoder $f_\theta$ outputs a sequence of representations $\{z_i|i=1,...,G\}$, where $z_i$ is a representation of patch $p_i$, and can be re-arranged back into a 2D grid of vectors, of size $H/P\times W/P$.
 
-Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation $\operatorname{interpolation}(\cdot, a, b, c)\in\mathbb{R}^{a\times b\times c}$. 
+Prediction is akin to classification, where a linear model $l_\mathbf{w}$ is applied on representation of each patch separately, yielding $\hat{m}\in\mathbb{R}^{K\times H/P\times W/P}$ for segmentation (class probability distribution for each patch), or $\hat{m}\in\mathbb{R}_+^{H/P\times W/P}$ for depth estimation (distance for each patch). Scaling back to the original $H\times W$ size is done by linear interpolation: $\operatorname{LinInterp}(\cdot, a, b, c)\in\mathbb{R}^{a\times b\times c}$. 
 Loss function for segmentation is:
 
 \begin{equation*}
-    -\frac{1}{HW}\sum_{i=1}^{H}\sum_{j=1}^{W}\log(1-\operatorname{interpolation}(\hat{m}, K, H, W)^{(m_{i,j},i,j)})\text{.}
+    -\frac{1}{HW}\sum_{i=1}^{H}\sum_{j=1}^{W}\log(1-\operatorname{LinInterp}(\hat{m}, K, H, W)^{(m_{i,j},i,j)})\text{.}
 \end{equation*}
-For depth estimation, the loss is $\frac{1}{HW}\|\operatorname{interpolation}(\hat{m}, H, W)-m\|^2_2$,~\ie mean squared error.
+For depth estimation, the loss is $\frac{1}{HW}\|\operatorname{LinInterp}(\hat{m}, H, W)-m\|^2_2$,~\ie mean squared error.
 
 \section{Adversarial Examples}
 \todo{organize this section better.}
@@ -121,13 +121,37 @@ $\ +\ .007\ \times$ &%
 
 Authors of~\cite{advex} dubbed their discovery as ``adversarial examples''. More precisely, an adversarial example $x_{adv}=x+\delta$ is a benign sample $x$ (here: image) and its perturbation $\delta$, crafted explicitly to cause misprediction of a victim model $f_V$. To limit the difference between clean and adversarial image, $\delta$ is oftentimes constrained to be within an $\epsilon$-ball,~\ie $\left\|\delta\right\|_p<\epsilon$, where $p\in\{0,1,2,\infty\}$. To ensure imperceptibility, $\epsilon$ is usually very small,~\eg $8/255$ for $L_\infty$ norm, meaning each pixel of the image is changed by at most $8/255$ (assuming pixel values are in $[0,1]$).
 
-Another important element of adversarial examples is the optimization procedure to obtain $\delta$. To cause a misprediction in the classification setting, one can maximize the CELoss, eventually flipping the predicted label from correct to incorrect. Specifically, given image $x$ and its label $y$, FGSM~\cite{fgsm} computes $\delta\leftarrow\epsilon\sign(\nabla_x\text{CELoss}(f_V(x),y))$,~\ie each element of $\delta\in\{-\epsilon,\epsilon\}$, and the sign of the $\epsilon$ is determined to maximize the CELoss between the prediction of $f_V$ on $x$ and the ground truth label $y$. A canonical example of FGSM is presented in~\cref{fig:fgsm}, with an image classifier being forced to mispredict an obvious image of panda after very small amount of noise added. Note that the perturbation $\delta$ is obtained \textit{in a single forward and backward step}, making this attack both very effective, and very cheap to execute.
+Another important element of adversarial examples is the optimization procedure to obtain $\delta$. To cause a misprediction in the classification setting, one can maximize the CELoss, eventually flipping the predicted label from correct to incorrect. Specifically, given image $x$ and its label $y$, FGSM~\cite{fgsm} computes 
+\begin{equation}
+    \delta\leftarrow\epsilon\sign(\nabla_x\text{CELoss}(f_V(x),y))\text{.}
+    \label{eq:fgsm}
+\end{equation}
+Each element of $\delta\in\{-\epsilon,\epsilon\}$, and the sign of the $\epsilon$ is determined to maximize the CELoss between the prediction of $f_V$ on $x$ and the ground truth label $y$. A canonical example of FGSM is presented in~\cref{fig:fgsm}, with an image classifier being forced to mispredict an obvious image of panda after very small amount of noise added. Note that the perturbation $\delta$ is obtained \textit{in a single forward and backward step}, making this attack both very effective, and very cheap to execute.
 
+While single-step FGSM already achieves impressive results, one can do better by using an iterative approach. Specifically, projected gradient descent PGD~\cite{pgd} performs $T$ update steps of~\cref{eq:fgsm} to further strengthen the attack. Full attack can be found in~\cref{alg:pgd}.
 
-Given an adversarial objective, 
+\begin{algorithm}
+\caption{PGD~\cite{pgd} algorithm.}
+\label{alg:pgd}
+\begin{algorithmic}
+    \Require $\epsilon$ (maximum perturbation strength), $\eta$ (step size), $T$ (total iterations)
+    \Require Obj (optimization objective,~\eg CELoss), clip, $(x,y)$, $f$
+    \Ensure $\delta$, s.t. $\|\delta\|_\infty\leq\epsilon$, and $f(x+\delta)\neq y$ (if attack succeeds)
+    \State $\delta\sim\text{Bernoulli}(0.5)^d$ \Comment{$d$ is the dimensionality of $x$}
+    \State $\delta\gets\epsilon(2\delta-1)$ \Comment{$\delta_i\in\{-\epsilon,\epsilon\}$}
+    \For{step $t=1,...,T$}
+        \State $\delta\gets\eta\sign\left(\nabla_\delta\text{Obj}\left(f\left(x+\delta\right),y\right)\right)$ \Comment{See~\cref{eq:fgsm}}
+        \State $\delta\gets\text{clip}(\delta,-\epsilon,\epsilon)$ \Comment{Ensures $\|\delta\|_\infty\leq\epsilon$}
+    \EndFor
+\end{algorithmic}
+\end{algorithm}
 
-Here more about the theory that the errors will accumulate etc
-
-PGD here
-
-SegPGD here
+While PGD and FGSM perform very well against simple classification tasks, more complex problems like semantic segmentation require a more involved approach. SegPGD~\cite{segpgd} identifies that a na\"{\i}ve application of PGD attack to the segmentation loss (averaged CELoss on each pixel) does not necessarily maximize the \textit{absolute number} of mis-predicted pixels within the image $x$. Instead, they split the predicted pixels $\hat{m}$ into two groups: correctly classified ($\hat{m}_+$), and incorrectly classified ($\hat{m}_-$). The goal of SegPGD is to maximize the size of the latter set. The optimization objective of SegPGD is a weighted sum of losses on both sets:
+\begin{equation}
+    \begin{aligned}
+        \text{SegPGD}(f,x,m,\delta,t)=\frac{1-\lambda(t)}{HW}\sum_{(i,j)\in \hat{m}_+}CELoss(f(x+\delta)^{(i,j)},m^{(i,j)})+\\
+        \frac{\lambda(t)}{HW}\sum_{(k,l)\in \hat{m}_-}CELoss(f(x+\delta)^{(k,l)},m^{(k,l)})\text{,}
+    \end{aligned}
+    \label{eq:segpgd}
+\end{equation}
+with $\lambda(t)=(t-1)/2T$ being the weighting factor, step-dependent. The objective function~\cref{eq:segpgd} can be easily plugged into the PGD algorithm (\cref{alg:pgd}).
